@@ -1,0 +1,4 @@
+# Skill junctions/symlinks created by tools/install.* ; never commit them
+.claude/skills/
+# Local agent settings
+.claude/settings.local.json
