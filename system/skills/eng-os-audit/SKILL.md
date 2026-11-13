@@ -49,7 +49,7 @@ than silently redirecting.
 3. **Work through the checklist below section by section.** Each row names what to check and
    where to look. Do not mark a row Pass on the strength of a CLAUDE.md sentence alone: verify
    against the actual files (grep, read, list) the way the row describes. A CLAUDE.md that
-   *claims* MVC but a codebase with business logic in route handlers is a Fail, not a Pass.
+   *claims* MVCS but a codebase with business logic in route handlers is a Fail, not a Pass.
 4. **Classify every row** as one of:
    - **Pass**: concretely verified against real files
    - **Fail**: concretely verified absent or violated; cite the file/line
@@ -79,7 +79,7 @@ than silently redirecting.
 | A4 | `## Platform Context`, `## Audience and Framing`, `## Core Entities`, `## Screens and Flows`, `## Mock Data Scale` are populated or explicitly marked N/A with a reason — none left as blank template placeholders | CLAUDE.md |
 | A5 | `## Terminology Lock` is populated before-the-fact style (canonical nouns/verbs), and code/UI/API actually use those exact terms — grep for near-synonyms of each locked term to catch drift | CLAUDE.md vs. source, UI copy, API field names |
 | A6 | `## Message Area Codes` table exists with area/3-letter-code pairs and a stated next-sequence counter; no two areas share a code; no code was reassigned | CLAUDE.md |
-| A7 | `## Project Structure` section names real folders that exist in the repo, matching `project-structure.md` conventions (MVC layers, app shell regions where there's a UI) | CLAUDE.md vs. actual folder tree |
+| A7 | `## Project Structure` section names real folders that exist in the repo, matching `project-structure.md` conventions (capabilities with five layer folders each, app shell regions where there's a UI) | CLAUDE.md vs. actual folder tree |
 | A8 | `## Definition of Done` and `## Non-Obvious Constraints` are populated, not placeholder text | CLAUDE.md |
 | A9 | `## Scale Targets` holds numbers (users, peak RPS, data volume, latency, availability, RPO/RTO, tenancy, classification), or a reasoned N/A for a library or trivial script | CLAUDE.md |
 
@@ -89,16 +89,20 @@ than silently redirecting.
 |---|---|---|
 | B1 | Constants sectioned by area exist at the path CLAUDE.md names; no hardcoded label/message/heading strings inline in components — grep for quoted string literals in JSX/template/view files | Named constants module(s) |
 | B2 | Every operational message in code carries a `{AREA}{6-digit}` code from the declared Message Area Codes table; no code is reused; grep all `throw`/`log`/toast/notification calls for bare strings with no code | Source, against CLAUDE.md's Message Area Codes table |
-| B3 | Business logic lives in Model layer files, not inline in route/controller/handler files — spot-check the largest handlers for inline business rules | `models/` (or stack equivalent) vs. `controllers/`/handlers |
+| B3 | Business logic lives in `services/`, not inline in route/controller/handler files — spot-check the largest handlers for inline business rules | `services/` vs. `controllers/`/handlers |
 | B4 | Global CSS/token file exists at the named path; components reference tokens/classes, not inline hardcoded colors/spacing | Named stylesheet/token file vs. component styles |
 | B5 | Four-region app shell present as named components (header, footer, nav panel, one application-panel-per-route) — not duplicated per page | Named shell component paths |
 | B6 | Shared/reusable components actually live in the named shared folder, not copy-pasted across pages — grep for near-duplicate JSX/markup blocks across 2+ page files | Named shared-components folder |
-| B7 | MVC (or stack equivalent) mapping stated in CLAUDE.md matches reality: Models contain no rendering, Views contain no business logic, Controllers are thin orchestration only | Actual source layering |
+| B7 | The layer mapping stated in CLAUDE.md matches reality: Models are types only, Repositories hold no business rules, Views hold no business logic or data access, Controllers are thin orchestration only | Actual source layering |
 | B8 | Responsive breakpoints (desktop/tablet/mobile) are actually implemented in the named layout mechanism, not asserted only | CSS/layout files |
 | B9 | Config/env file exists at the named path; grep the whole codebase for direct `os.getenv`/`process.env` calls outside that one file | Named config module vs. rest of source |
 | B10 | Accessibility: an automated WCAG checker runs in CI and shell components are keyboard operable with visible focus | CI config, shell components |
 | B11 | The declared design profile (default, inherited, or own) exists at the named path and components reference its tokens | Named token file vs. component styles |
 | B12 | Generic/specific split: every specific-section bullet passes `eng-os-doc-authoring-rules` Core Rule 11's duplicate test against the generic section | The doc's own generic vs. specific sections |
+| B13 | Every capability under `src/capabilities/` has all five folders (`controllers/`, `services/`, `repositories/`, `models/`, `views/`), including ones that are empty; no capability uses a different layout | Folder listing of each capability |
+| B14 | Dependency direction holds: no import from a lower layer to a higher one, and no import reaches into another capability's `controllers/`, `repositories/`, `models/`, or `views/`; the enforcing tool (`dependency-cruiser`, `import-linter`) exists, is configured, and runs in CI | Import graph (run the tool, or grep imports), CI config |
+| B15 | Services receive repositories by injection: no `services/` file constructs a repository or imports a database client or transport type; `app`/`main` is the only module wiring both | `services/` imports, composition root |
+| B16 | `tests/` mirrors `src/` layer for layer, with one test file per source file; service tests use a fake repository and need no database | Folder listing of `tests/` vs. `src/` |
 
 ### C. Checkpoint-Table Compliance (spot-check recent work, not full history)
 
@@ -174,7 +178,7 @@ for the user to hand back for remediation, separate from this audit.}
 
 ## Failure Modes
 
-- **Passing a row on CLAUDE.md prose alone.** A CLAUDE.md that claims MVC beside route handlers full of business logic is a Fail; every row is verified against files, not statements.
+- **Passing a row on CLAUDE.md prose alone.** A CLAUDE.md that claims MVCS beside route handlers full of business logic is a Fail; every row is verified against files, not statements.
 - **Rounding Unknown up to Pass.** An unreachable engineering-os path or ambiguous evidence stays Unknown, with the limit named in the report.
 - **N/A assigned by the auditor.** A row is N/A only when the project's own CLAUDE.md marked it so; otherwise it is a finding.
 - **Auditing the whole history.** Section C samples recent work; a pass over every commit of a mature project never finishes and buries the pattern.

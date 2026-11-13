@@ -563,48 +563,85 @@ function computeRelevanceScore(clip, queryText) { ... }
 
 ---
 
-### 13. Model-View-Controller Layering
+### 13. Capability-Based MVCS Layering
 
-Every application, regardless of type (web, desktop, CLI, mobile, or a backend service with a UI)
-or stack, separates code into three layers. This is not a web-specific pattern; a CLI tool or
-backend service benefits from the same separation and follows it too.
+Every application, regardless of type (web API, UI, desktop, CLI, mobile, worker, queue consumer,
+scheduled job) or stack, is organized by **capability** first and by **layer** second. Each
+capability owns the same five layers in the same five folders, from the first file. There is no
+size threshold below which a layer folder is skipped and no point at which one is added later:
+the structure is identical on day one and at scale, so growth never forces a restructure.
 
-- **Model**: data shape, persistence, and business/domain rules. No rendering, no I/O framing, no
-  knowledge of how it is presented.
-- **View**: presentation only; rendering, layout, formatting for the output medium (HTML/UI
-  components, CLI output formatting, API response serialization). No business logic, no direct
-  data-store access.
-- **Controller**: orchestrates a single request/command/action; reads input, calls the Model,
-  selects/invokes the View. Thin by design; logic that grows here beyond orchestration belongs in
-  the Model.
-- A page/route/command handler is a Controller. Business logic reached from it lives in a Model
-  module it calls, never inline in the handler itself: this is the concrete form of "business
-  logic lives in the appropriate layer," not the page/component file.
-- Naming the layers explicitly (`models/`, `views/` or `components/`, `controllers/` or
-  `handlers/`/`routes/`) is required; folding all three into one file/function for anything beyond
-  a trivial script is the failure mode this standard exists to prevent.
+**Layers.** Dependencies flow one way: `controllers` to `services` to `repositories` to `models`,
+with `views` called by controllers to shape output.
+
+| Layer | Folder | Owns | Must not |
+|---|---|---|---|
+| Controller | `controllers/` | The entry point for one request, command, or message: binding (HTTP route, CLI command, queue subscription), shape validation of input, calling one service, passing the result to a view, mapping a domain error to the transport's response | contain business rules, SQL, or persistence calls |
+| Service | `services/` | Business rules, calculations, state transitions, orchestration, business validation, the transaction boundary | import transport types (request, response, status codes, CLI context); touch a data store except through a repository |
+| Repository | `repositories/` | All data access: queries, parameterized statements, external-store clients | hold business rules; import controllers, views, or transport libraries |
+| Model | `models/` | Record structures and domain types: the named shapes that services and repositories pass between them | hold behavior that reaches outside the type; import any other layer |
+| View | `views/` | Output shapes: response payload, CLI output, outbound event or message payload, rendered UI. An explicit whitelist of fields that may leave the service | hold business logic or data access; expose fields not on the whitelist |
+
+A route and its controller are one layer. Binding a path or command to a handler is part of the
+handler's control flow, so they share a file.
+
+**Rules.**
+- must keep one capability's layers in one folder: `capabilities/<capability>/{controllers,services,repositories,models,views}/`, all five present for every capability
+- must keep the repository and the record structures separate: repositories in `repositories/`, structures in `models/`, always, so the data layer can be injected without carrying the data shape with it
+- must inject repositories into services (constructor, factory argument, or function parameter) and wire them in one composition root (`app` or `main`); a service never constructs its own repository or imports a concrete database client
+- must keep services free of transport types so the same service runs behind HTTP, a CLI, or a consumer unchanged
+- must throw typed domain errors from services (defined once in `shared/errors/`) and translate them to the transport's response in one place, not per handler
+- must validate shape (types, required fields, formats) at the controller edge and business conditions (uniqueness, state rules, permissions on the data) in the service
+- must let the service own the transaction boundary; a repository joins the transaction it is given and never opens its own
+- must not import another capability's `controllers/`, `repositories/`, `models/`, or `views/`; cross-capability calls go through that capability's `services/` or through `shared/events/`
+- must place orchestration that coordinates two or more capabilities synchronously, or that would make two services import each other, in `workflows/<workflow-name>`
+- must put code in `shared/` only when two or more capabilities use it and it holds no business logic belonging to one capability
+- must mirror the source tree in `tests/`, layer for layer, with one test file per source file
+- must make the layer visible in each file's name or package, in the form the language skill defines
+
+**Mapping to transports.** The layers and their dependency direction are the same for every
+application type. Only the controller's binding and the view's output medium change.
+
+| Application type | Controller binds | View produces |
+|---|---|---|
+| HTTP API | route to handler | response payload (serialized, field-whitelisted) |
+| UI application | page or route to handler | rendered components, inside the four-region app shell |
+| CLI | command to handler | formatted terminal output |
+| Worker or consumer | queue, topic, or schedule to handler | result record, outbound event or message payload |
+
+Layout, naming, and one tree per transport: `project-structure.md` Section 2 and, in the skill
+layer, `references/mvcs-layout.md`. Tools that enforce the dependency direction mechanically are
+named in each language standard.
 
 ```
-// forbidden — business logic and rendering mixed into the route handler
+// forbidden: business logic, persistence, and rendering in the route handler
 function handleCreateRotation(request, response):
     if len(request.body.name) < 3: throw ValidationError("name too short")
     rotation = db.insert("rotations", { name: request.body.name, service_id: request.body.service_id })
     response.send("<div>Created rotation " + rotation.name + "</div>")
 
-// correct — Controller orchestrates only; Model owns the rule; View owns rendering
-// models/rotation.ts
-function createRotation(input, db):
+// correct: each layer does one job; the service receives its repository
+// rotations/models/rotation.ts
+type Rotation = { id, name, serviceId }
+
+// rotations/repositories/rotation-repository.ts
+function insertRotation(db, input): Rotation
+    return db.insert("rotations", { name: input.name, service_id: input.serviceId })
+
+// rotations/services/rotation-service.ts
+function createRotation(input, rotationRepository):
     if len(input.name) < 3: throw ValidationError(ROTATIONS_MESSAGES.NAME_TOO_SHORT)
-    return db.insert("rotations", { name: input.name, service_id: input.service_id })
+    return rotationRepository.insert(input)
 
-// views/pages/RotationCreated.ts
-function renderRotationCreated(rotation):
-    return template("rotation-created", { name: rotation.name })
+// rotations/views/rotation-view.ts
+function toRotationResponse(rotation):
+    return { id: rotation.id, name: rotation.name }          // whitelist
 
-// controllers/rotations.ts
+// rotations/controllers/rotation-controller.ts
 function handleCreateRotation(request, response):
-    rotation = createRotation(request.body, db)          // Model
-    response.send(renderRotationCreated(rotation))        // View
+    input = parseCreateRotation(request.body)                 // shape validation
+    rotation = rotationService.createRotation(input)          // service, repository already injected
+    response.status(201).send(toRotationResponse(rotation))   // view
 ```
 
 ---
@@ -627,9 +664,18 @@ function handleCreateRotation(request, response):
 - messages without a stable unique code make it impossible for support/QA/logs to reference "which
   message" without pasting the full text, and reassigning a code after the fact breaks any existing
   reference to it (a support ticket, a log search, a test assertion)
-- business logic written directly in a page/route/command handler instead of a Model it calls makes
+- business logic written directly in a page/route/command handler instead of a service it calls makes
   the same rule impossible to reuse or test in isolation, and re-derives it with drift the next
   time it is needed elsewhere
+- a layer folder created only once it "has enough files" turns every capability into a future
+  restructure and makes the layout differ from capability to capability; all five exist from the
+  first file
+- a service that constructs its own repository or imports a database client cannot be unit-tested
+  without the database and couples every business rule to one store
+- one capability importing another's repository, model, controller, or view makes the two impossible
+  to change independently; the coupling is invisible until a schema change breaks the other
+- a `shared/` folder that accumulates code used by one capability becomes a dumping ground that
+  every capability depends on
 
 ---
 
@@ -666,7 +712,11 @@ Code meets this standard when:
 - every third-party SDK/client is constructed in exactly one component, not per call site
 - Object-Oriented Design was chosen per-responsibility against the triggers in Standard 12, not
   applied or avoided as a blanket project-wide style
-- Model/View/Controller layers are separated and named as such (or the stack's equivalent
-  folders), for every app type, not only web apps
-- every route/page/command handler (Controller) delegates business logic to a Model it calls,
-  rather than implementing that logic inline
+- every capability has all five layer folders (`controllers/`, `services/`, `repositories/`,
+  `models/`, `views/`) from its first file, for every app type including workers, CLIs, and UIs
+- dependencies flow controllers, services, repositories, models only; no layer imports upward
+- every route/page/command/message handler (Controller) delegates business logic to a service
+  rather than implementing it inline
+- every service receives its repositories by injection from one composition root
+- no capability imports another capability's controllers, repositories, models, or views
+- `tests/` mirrors `src/` layer for layer

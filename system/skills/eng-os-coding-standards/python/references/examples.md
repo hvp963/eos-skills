@@ -3,7 +3,7 @@
 ## 2. Configuration Module
 
 ```python
-# config.py
+# src/config/env.py
 import os
 
 # --- required (no default — raises at startup if absent) ---
@@ -279,6 +279,6 @@ from lib.utils import process_order, validate_record, write_csv, load_config
 from . import config         # config is a lower dependency
 
 # forbidden — reversed direction
-# src/config.py
+# src/config/env.py
 from .ai_cleaner import ...  # config must not depend on business logic
 ```

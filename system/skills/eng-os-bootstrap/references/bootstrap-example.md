@@ -12,7 +12,7 @@ Inspecting the repo:
   `vite`, plus a `tests` script wired to `vitest`.
 - Source is split across `src/api/`, `src/db/`, `src/web/`, more than one file, clear
   separation of concerns (API layer, persistence, front end). `src/web/` itself is not yet
-  split along MVC/app-shell lines (Standard 13, `eng-os-design-system` App Shell): flagged below as
+  split along MVCS/app-shell lines (Standard 13, `eng-os-design-system` App Shell): flagged below as
   a gap to close during bootstrap, not a reason to disqualify the project from the full template.
 - There's a `migrations/` folder with two migrations already applied, and a `README.md`
   describing a roadmap ("v2: Slack reminders", "v3: multi-team support").
@@ -162,18 +162,22 @@ CLAUDE.md considered live, and `eng-os-core`'s checkpoint table becomes enforcea
 project.
 
 Project Structure is populated using the web-app example in `eng-os-bootstrap`'s own template
-(MVC layering plus the four-region app shell), since `src/web/` here is a React frontend, not a
+(capability-based MVCS layering plus the four-region app shell), since `src/web/` here is a React frontend, not a
 static/report page:
 
 ```
 src/web/
-  models/       Rotation/Shift/Engineer data shape and business rules
-  views/
-    shell/      AppHeader, AppFooter, NavPanel
-    pages/      RotationsPage, ScheduleView, EngineerDetail — the application-panel content
-    components/ ShiftCard, HandoffBadge — shared across 2+ pages
-  controllers/  Route handlers; call models/, select a view, no business logic inline
-  constants/    ROTATIONS_LABELS, ROTATIONS_MESSAGES, etc., sectioned by area
+  app.ts          Composition root
+  config/env.ts
+  capabilities/
+    rotations/    controllers/ services/ repositories/ models/ views/   (all five folders)
+    shifts/       controllers/ services/ repositories/ models/ views/
+    engineers/    controllers/ services/ repositories/ models/ views/
+  shared/
+    views/
+      shell/      AppHeader, AppFooter, NavPanel
+      components/ ShiftCard, HandoffBadge — shared across 2+ pages
+    constants/    ROTATIONS_LABELS, ROTATIONS_MESSAGES, etc., sectioned by area
 ```
 
 Retrofitting `src/web/`'s existing flat structure into this layout is itself a task the task
@@ -188,18 +192,21 @@ operational messages (handoff reminders, save confirmations):
 
 | Practice | Concrete answer written into CLAUDE.md |
 |---|---|
-| Constants sectioned by area | `src/web/constants/rotations.ts`, `constants/engineers.ts`, `constants/shifts.ts` — one file per Core Entity area, each exporting `{AREA}_LABELS` and `{AREA}_MESSAGES` |
-| User-facing strings are constants | Every label/heading/message in `views/pages/` and `views/shell/` reads from the constants files above; no inline literal strings in JSX |
+| Constants sectioned by area | `src/web/shared/constants/rotations.ts`, `engineers.ts`, `shifts.ts` — one file per Core Entity area, each exporting `{AREA}_LABELS` and `{AREA}_MESSAGES` |
+| User-facing strings are constants | Every label/heading/message in each capability's `views/` and in `shared/views/shell/` reads from the constants files above; no inline literal strings in JSX |
 | Message code prefix, shared sequence | `## Message Area Codes` table: `ROT` = Rotations, `ENG` = Engineers, `SHF` = Shifts, `HDR` = HandoffReminder. Single project-wide counter starts at `000001` |
-| Business logic in Model layer | `src/web/models/rotation.ts`, `models/shift.ts`, `models/engineer.ts` — retry/reminder scheduling logic moves here, out of `src/api/` route handlers |
+| Capabilities and the five layers | `rotations`, `shifts`, `engineers`, each with `controllers/`, `services/`, `repositories/`, `models/`, `views/` under `src/web/capabilities/`; `shared/` for the shell and cross-capability components |
+| Composition root | `src/web/app.ts` builds each repository and injects it into its service |
+| Dependency direction enforced | `dependency-cruiser` config at `.dependency-cruiser.cjs`, run in CI; fails on an upward import or a cross-capability import that skips `services/` |
+| Business logic in the service layer | `src/web/capabilities/rotations/services/`, `shifts/services/`, `engineers/services/` — retry/reminder scheduling logic moves here, out of `src/api/` route handlers |
 | Global CSS, no hardcoded styles | `src/web/styles/tokens.css`, following `eng-os-design-system` skill's token set; components reference tokens only |
-| Four-region app shell | `views/shell/AppHeader.tsx`, `AppFooter.tsx`, `NavPanel.tsx` (links: Rotations, Schedule, Engineers); `views/pages/*.tsx` render into the application panel |
-| Reusable components | `views/components/ShiftCard.tsx`, `HandoffBadge.tsx` — extracted since both already appear on 2+ pages in the existing code |
-| MVC (any app type) | Controllers = `src/controllers/*.ts` (renamed from the existing flat `src/api/` route handlers during the retrofit task); Views = `views/`; Models = `models/` |
+| Four-region app shell | `shared/views/shell/AppHeader.tsx`, `AppFooter.tsx`, `NavPanel.tsx` (links: Rotations, Schedule, Engineers); each capability's `views/` renders into the application panel |
+| Reusable components | `shared/views/components/ShiftCard.tsx`, `HandoffBadge.tsx` — extracted since both already appear on 2+ pages in the existing code |
+| Transport mapping | Controllers bind page routes (`rotations.controller.ts` handles `/rotations`); views produce rendered pages; the existing flat `src/api/` route handlers are renamed and split into the capability controllers during the retrofit task |
 | Responsive breakpoints | Existing CSS uses fixed `960px` containers — flagged as a retrofit item to convert to `minmax()`/`%`-based layout for the 768px/1024px breakpoints |
-| Config/env file | `src/config.ts` already exists and is correct; no change needed |
+| Config/env file | `src/config/env.ts` already exists and is correct; no change needed |
 
 This table itself is what gets transcribed into CLAUDE.md's Project Structure, Message Area
 Codes, and Non-Obvious Constraints sections, not kept as a separate scratch document. The
-responsive-breakpoints row and the MVC-retrofit row both feed directly into the `eng-os-execute-feature`
+responsive-breakpoints row and the layering-retrofit row both feed directly into the `eng-os-execute-feature`
 task list as tracked items, since neither is true of the codebase yet at bootstrap time.

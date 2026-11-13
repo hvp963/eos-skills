@@ -42,6 +42,15 @@ produces a CLAUDE.md nobody can audit against. Instead:
    `eng-os-design-system` and `eng-os-api-design` if there is no UI or public API. Add
    `eng-os-platform-infrastructure` when the project owns infrastructure code or runs in more than one
    region.
+3a. **Language skill gate.** Every language in the stack needs a coding-standards skill in the
+   Active Skills set (`eng-os-coding-standards-nodejs`, `eng-os-coding-standards-python`). If the
+   stack includes a language with no such skill (Java, Go, or any other), do not write code in it
+   yet. Create its coding-standards skill first, with the same sections as the existing two: config
+   module, error handling, retry, logging, testing, documentation, and the Capability Layout
+   (MVCS) section that maps `eng-os-coding-standards-common` Standard 13 to that language's file
+   naming, validation library, dependency injection, and the tool that enforces dependency
+   direction in CI. Write its examples against the real project and verify them by building and
+   running them; examples written without a project that exercises them are not accepted.
 4. **Write the `## Active Skills` section** listing exactly that set with a one-line reason each.
    This is the drift-check artifact: a reviewer audits future work against it.
 5. **Populate `## Scale Targets` in numbers.** From the Product Brief if there is one, otherwise
@@ -65,8 +74,9 @@ Only then is CLAUDE.md live and `eng-os-core`'s checkpoint table enforceable.
 
 ## Architecture Practices Gate
 
-For any project with a UI (skip UI rows for a pure API, pipeline, or library) or with any
-operational message, answer each row concretely, in writing, in CLAUDE.md. "Yes" is not an
+For any project with source code, answer the layering rows below. For any project with a UI (skip
+the UI rows for a pure API, pipeline, worker, or library) or with any operational message, answer
+the remaining rows too. Answer each row concretely, in writing, in CLAUDE.md. "Yes" is not an
 answer; a path, folder, or component name is.
 
 | Practice | Required concrete answer |
@@ -74,11 +84,14 @@ answer; a path, folder, or component name is.
 | No hardcoding; constants sectioned by area | The constants module path(s) and the first area section (e.g. `src/constants/customer.ts` with `CUSTOMER_LABELS`, `CUSTOMER_MESSAGES`) |
 | All user-facing strings are constants | Confirmation that no literal label/message/heading appears inline in a component, plus the exception list (test names, log messages, comments) |
 | Message code prefix, single project-wide sequence | The `## Message Area Codes` table with the areas known now, each with its 3-letter code, and the shared counter's start (`000001` for a new project) |
-| Business logic in the Model layer | The actual `models/` (or equivalent) path |
+| Capabilities and the five layers | The capability list known now, each with its five folders (`controllers/`, `services/`, `repositories/`, `models/`, `views/`) under `src/capabilities/<capability>/`, plus `workflows/` and `shared/` |
+| Composition root | The `app` module that builds repositories and injects them into services |
+| Dependency direction enforced | The tool and config path that fails CI on an upward import or a cross-capability import (`dependency-cruiser`, `import-linter`, or the language skill's equivalent) |
+| Business logic in the service layer | The actual `services/` path per capability; handlers hold no business rule |
 | Global CSS, no hardcoded styles | The global stylesheet or token file path, and which design profile it follows |
 | Four-region app shell | The four component paths (header, footer, nav panel, and where per-route content renders) |
 | Reusable components | The shared-components folder path |
-| MVC for any app type | How Model, View, and Controller map onto this project's actual folders, even for a CLI or backend service |
+| Transport mapping | What each capability's controllers bind to (route, command, queue or schedule) and what its views produce (payload, terminal output, event, rendered UI), even for a CLI or worker |
 | Responsive: desktop, tablet, mobile | Confirmation the three breakpoints will be honored and the layout mechanism (Grid/Flexbox breakpoints, a responsive framework) |
 | Accessibility | Confirmation WCAG 2.2 AA is a Definition-of-Done row and which automated checker runs in CI |
 | Config/env file | The config module path |
@@ -86,7 +99,7 @@ answer; a path, folder, or component name is.
 If a row's honest answer is "this project has no UI, skip" or "no operational messages, skip,"
 write that explicitly. An explicit skip with a reason is a completed row; silence is not.
 
-**Failure mode this gate prevents:** a bootstrap that writes "Follows MVC" or "Uses a design
+**Failure mode this gate prevents:** a bootstrap that writes "Follows MVCS" or "Uses a design
 system" as a one-line assertion with no path a later reviewer can check code against. That
 sentence satisfies "no placeholders" while binding the build to nothing, which is exactly how
 prior projects drifted from practices the OS already named.
@@ -109,5 +122,6 @@ Bootstrap is complete when:
 - if part of a suite, `## Design System Carryover` points to the source app or names the profile rather than retyping tokens
 - `## Terminology Lock` and `## Message Area Codes` are populated (or explicitly `N/A` with a reason) before any code, UI copy, or messages exist
 - if a Product Brief existed, its content was transcribed, not re-invented
+- every language in the stack has a coding-standards skill in Active Skills, or one was created and verified against the project before code was written in that language
 - the Architecture Practices Gate ran with a concrete answer or a reasoned skip for every row, and each answer appears in the CLAUDE.md section where a reviewer will look
 - the next step was stated: `eng-os-spec-feature` for a feature at the spec threshold, `eng-os-execute-feature` for a small change

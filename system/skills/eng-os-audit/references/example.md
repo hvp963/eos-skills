@@ -34,7 +34,7 @@ Counts: Pass 24, Fail 5, Partial 3, N/A 4, Unknown 0.
 | # | Status | Evidence |
 |---|---|---|
 | B2 | Fail | 11 of 11 toast calls in `src/views/pages/*.tsx` pass bare strings; no `FLT0000nn` code |
-| B3 | Fail | `src/controllers/dispatch.ts` lines 40 to 138 compute routing eligibility inline |
+| B3 | Fail | `src/capabilities/dispatch/controllers/dispatch.controller.ts` lines 40 to 138 compute routing eligibility inline |
 | B10 | Pass | axe runs in CI (`.github/workflows/ui.yml`); shell components keyboard-tested |
 
 ### C. Checkpoint-Table Compliance
@@ -49,8 +49,8 @@ Counts: Pass 24, Fail 5, Partial 3, N/A 4, Unknown 0.
   across 5 files, while every `throw` carries a code. The checkpoint fires on "user-facing
   message" and the agent has been treating toasts as UI, not messages.
 - **Business logic written in the handler when the model file did not yet exist.** Both
-  failing handlers date from tasks where no `models/` file for that concept existed; the agent
-  implemented inline rather than creating the model first.
+  failing handlers date from tasks where no `services/` file for that concept existed; the agent
+  implemented inline rather than creating the service first.
 - **Scale Targets treated as a launch-time deliverable.** The section was left as a placeholder
   at bootstrap and nothing later forced it, so the capacity model and load test had no numbers.
 
@@ -58,7 +58,7 @@ Counts: Pass 24, Fail 5, Partial 3, N/A 4, Unknown 0.
 
 1. Populate Scale Targets (blocks every reliability check downstream).
 2. Add a timeout, jitter, and budget to the maps client (outage risk).
-3. Extract dispatch eligibility into `src/models/dispatch.ts`.
+3. Extract dispatch eligibility into `src/capabilities/dispatch/services/dispatch.service.ts`.
 4. Assign `FLT` codes to the 11 toasts in one pass; update the sequence counter.
 5. Resolve the Vehicle/asset drift with one complete rename and an ADR.
 ```

@@ -185,7 +185,7 @@ If the observability guide specifies that structured logs must include `trace_id
 
 | File | What It Covers |
 | --- | --- |
-| `coding-standards/common.md` | 13 language-agnostic standards: configuration (incl. user-facing string/message-code constants), error handling, retry logic, logging, security, testing, documentation baseline, component boundaries/OOD, Model-View-Controller layering |
+| `coding-standards/common.md` | 13 language-agnostic standards: configuration (incl. user-facing string/message-code constants), error handling, retry logic, logging, security, testing, documentation baseline, component boundaries/OOD, capability-based MVCS layering |
 | `coding-standards/python.md` | Full Python implementation of common standards; Section 9 = Google-style docstrings; Section 10 = OOP conventions: class naming, dataclasses, dependency direction |
 | `coding-standards/nodejs.md` | Full TypeScript implementation of common standards; Section 9 = JSDoc with same tags (omitting `{type}` since the compiler enforces types) |
 

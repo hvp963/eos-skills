@@ -20,7 +20,7 @@
 ## 2. Configuration Module
 
 ```typescript
-// src/config.ts
+// src/config/env.ts
 import * as dotenv from 'dotenv';
 
 // load .env in dev only — never in stage or prod

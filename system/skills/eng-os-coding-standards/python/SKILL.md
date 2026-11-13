@@ -27,7 +27,7 @@ LOG_LEVEL = LOG_LEVEL_MAP.get(EXECUTION_MODE, "DEBUG")
 
 ## 2. Configuration Module
 
-Create `config.py` (or `settings.py`) at the project root. Load once at startup.
+Create `src/config/env.py`. Load once at startup.
 - required values: read via `os.environ["KEY"]` (raises `KeyError` if missing); never `os.getenv` for required values
 - optional values: `os.getenv("KEY", "default")` with an explicit default
 - retry counts: configurable per area, e.g. `API_NUM_RETRIES`, `DB_NUM_RETRIES`
@@ -48,7 +48,7 @@ Create `config.py` (or `settings.py`) at the project root. Load once at startup.
 
 ## 5. Retry with Exponential Backoff
 
-Use `tenacity` (`wait_random_exponential` for full jitter, `stop_after_attempt | stop_after_delay` for the budget) or a lightweight utility respecting `RETRY_BASE_MS`, `RETRY_CAP_MS`, `RETRY_BUDGET_MS` from `config.py`. Only retry a defined tuple of retryable exception types; non-retryable exceptions re-raise immediately without consuming a retry attempt.
+Use `tenacity` (`wait_random_exponential` for full jitter, `stop_after_attempt | stop_after_delay` for the budget) or a lightweight utility respecting `RETRY_BASE_MS`, `RETRY_CAP_MS`, `RETRY_BUDGET_MS` from `src/config/env.py`. Only retry a defined tuple of retryable exception types; non-retryable exceptions re-raise immediately without consuming a retry attempt.
 
 ## 6. Structured Logging
 
@@ -85,23 +85,37 @@ Google-style docstrings (`Args:`, `Returns:`, `Raises:`), decided in `../../../d
 - **class naming:** domain entities are PascalCase nouns (`OrderItem`); exceptions are PascalCase nouns ending in `Error` (`FetchError`, `TransientFetchError`)
 - **dataclasses for value objects:** use `@dataclass` for named, typed domain objects; never an untyped dict as a domain object
 - **one module, one responsibility:** e.g. `order_processor.py` owns only order-processing concerns; never accumulate unrelated helpers into a `utils.py`
-- **dependency direction:** lower modules (e.g. `config.py`) must never import from higher/business-logic modules
+- **dependency direction:** lower modules (e.g. `src/config/env.py`) must never import from higher/business-logic modules
 
-See `references/examples.md` for full code samples of each rule above.
+See `references/examples.md` for full code samples of each rule above and the MVCS layout reference in `eng-os-coding-standards-common` for the layout.
+
+## 11. Capability Layout (MVCS)
+
+Applies `eng-os-coding-standards-common` Standard 13 to Python. Layers, folders, and dependency
+direction are defined there; this section adds only the Python specifics.
+
+- file names: `<capability>_<layer>.py` (`orders_controller.py`, `orders_service.py`, `orders_repository.py`, `orders_model.py`, `orders_view.py`); tests are `test_<capability>_<layer>.py`
+- controller: binds the route or command and validates input with a `pydantic` model, then calls one service
+- service: a class taking repositories in `__init__`; imports no framework request, response, or status code; raises typed errors from `src/shared/errors/`
+- repository: the only layer that imports the database driver; parameterized statements only (`%s` or named parameters), never f-string SQL
+- model: `dataclass` or `pydantic` types, not dictionaries
+- error mapping: one exception handler registered in `app` translates domain errors to the transport's response
+- enforcement: declare the layer order and capability independence in `import-linter` (`layers` and `independence` or `forbidden` contracts) and run it in CI
 
 ## Failure Modes
 
 - `except Exception: pass` silently swallows all errors and makes debugging impossible
 - mutable default arguments (`def f(items=[])`) create shared state across calls
-- reading `os.getenv()` at call sites instead of `config.py` causes configuration drift
+- reading `os.getenv()` at call sites instead of `src/config/env.py` causes configuration drift
 - using `print()` for logging bypasses log level control and structured output
 - missing type hints on public functions break IDE tooling and contract visibility
 - `utils.py` catch-all modules accumulate unrelated code and create coupling hubs
 - dictionaries used as domain objects lose the contract: use dataclasses instead
+- a route function that opens a database connection, or a service that imports the web framework, defeats the layering that makes services testable without a server or a database
 
 ## Definition of Done
 
-- [ ] `config.py` exists and all env vars are read there
+- [ ] `src/config/env.py` exists and all env vars are read there
 - [ ] required secrets raise `EnvironmentError` at startup if missing
 - [ ] all external calls use try/catch with specific exception types
 - [ ] retry logic is applied to transient calls
@@ -113,5 +127,6 @@ See `references/examples.md` for full code samples of each rule above.
 - [ ] classes are PascalCase nouns; exceptions end in `Error`
 - [ ] dataclasses are used for value objects instead of untyped dictionaries
 - [ ] no `utils.py` or catch-all modules exist
+- [ ] every capability has `controllers/`, `services/`, `repositories/`, `models/`, and `views/` with `<capability>_<layer>.py` names, and the layer order and capability independence are enforced by `import-linter` (or equivalent) in CI
 - [ ] project folder layout follows `micro/project-structure.md` with `src/` as the source folder
 - [ ] `trace_id` is carried in a `ContextVar` from the entry point, not passed through signatures

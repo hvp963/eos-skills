@@ -41,10 +41,10 @@ LOG_LEVEL = LOG_LEVEL_MAP.get(EXECUTION_MODE, "DEBUG")
 
 ## 2. Configuration Module
 
-Create `config.py` (or `settings.py`) at the project root. Load once at startup.
+Create `src/config/env.py`. Load once at startup.
 
 ```python
-# config.py
+# src/config/env.py
 import os
 
 # --- required (no default — raises at startup if absent) ---
@@ -403,9 +403,40 @@ from lib.utils import process_order, validate_record, write_csv, load_config
 from . import config         # config is a lower dependency
 
 # forbidden — reversed direction
-# src/config.py
+# src/config/env.py
 from .ai_cleaner import ...  # config must not depend on business logic
 ```
+
+---
+
+## 11. Capability Layout (MVCS)
+
+Applies `common.md` Standard 13 to Python. The five layer folders per capability, the dependency
+direction, and the composition root are defined there and in `project-structure.md` Section 2;
+this section adds only the Python specifics.
+
+- **file names:** `<capability>_<layer>.py`, for example `orders_controller.py`, `orders_service.py`, `orders_repository.py`, `orders_model.py`, `orders_view.py`; tests are `test_<capability>_<layer>.py`
+- **controller:** binds the route or command and validates input with a `pydantic` model, then calls one service
+- **service:** a class taking its repositories in `__init__`. It imports no framework request, response, or status code, and raises typed errors from `src/shared/errors/`
+- **repository:** the only layer that imports the database driver; parameterized statements only (`%s` or named parameters), never f-string SQL
+- **model:** `dataclass` or `pydantic` types, not dictionaries (see `project-structure.md` Section 8)
+- **error mapping:** one exception handler registered in `app` translates domain errors to the transport's response; handlers do not
+- **enforcement:** declare the layer order and capability independence in `import-linter` (a `layers` contract for controllers, services, repositories, models, and `independence` or `forbidden` contracts between capabilities, with `services` as the allowed entry) and run it in CI
+
+```python
+# src/capabilities/orders/controllers/orders_controller.py
+class OrdersController:
+    def __init__(self, orders_service: OrdersService) -> None:
+        self._orders_service = orders_service
+
+    def create_order(self, payload: CreateOrderRequest) -> OrderResponse:   # shape validated by pydantic
+        order = self._orders_service.create_order(payload.to_new_order())    # business rules in the service
+        return to_order_response(order)                                      # view whitelists the fields
+```
+
+#### Failure Mode
+A route function that opens a database connection, or a service that imports `fastapi` or `flask`.
+An `import-linter` config that exists but is not run in CI.
 
 ---
 
@@ -413,18 +444,19 @@ from .ai_cleaner import ...  # config must not depend on business logic
 
 - `except Exception: pass` silently swallows all errors and makes debugging impossible
 - mutable default arguments (`def f(items=[])`) create shared state across calls
-- reading `os.getenv()` at call sites instead of `config.py` causes configuration drift
+- reading `os.getenv()` at call sites instead of `src/config/env.py` causes configuration drift
 - using `print()` for logging bypasses log level control and structured output
 - missing type hints on public functions break IDE tooling and contract visibility
 - `utils.py` catch-all modules accumulate unrelated code and create coupling hubs
 - dictionaries used as domain objects lose the contract: use dataclasses instead
+- a route function that opens a database connection, or a service that imports the web framework, defeats the layering that makes services testable without a server or a database
 
 ---
 
 ## Definition of Done
 
 Python code meets this standard when:
-- `config.py` exists and all env vars are read there
+- `src/config/env.py` exists and all env vars are read there
 - required secrets raise `EnvironmentError` at startup if missing
 - all external calls use try/catch with specific exception types
 - retry logic is applied to transient calls

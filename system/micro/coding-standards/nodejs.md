@@ -46,10 +46,10 @@ Node.js/TypeScript-specific implementation of the rules defined in `common.md`.
 
 ## 2. Configuration Module
 
-Create `src/config.ts`. Export typed constants. Read env vars once at module load.
+Create `src/config/env.ts`. Export typed constants. Read env vars once at module load.
 
 ```typescript
-// src/config.ts
+// src/config/env.ts
 import * as dotenv from 'dotenv';
 
 // load .env in dev only — never in stage or prod
@@ -81,7 +81,7 @@ export const config = {
 } as const;
 ```
 
-Import from `config.ts` everywhere. Never call `process.env` at call sites.
+Import from `config/env.ts` everywhere. Never call `process.env` at call sites.
 
 ---
 
@@ -415,13 +415,45 @@ const lineTotal = item.priceCents * item.quantity;
 
 ---
 
+## 11. Capability Layout (MVCS)
+
+Applies `common.md` Standard 13 to Node.js/TypeScript. The five layer folders per capability,
+the dependency direction, and the composition root are defined there and in
+`project-structure.md` Section 2; this section adds only the TypeScript specifics.
+
+- **file names:** `<capability>.<layer>.ts` in kebab-case, for example `orders.controller.ts`, `orders.service.ts`, `orders.repository.ts`, `orders.model.ts`, `orders.view.ts`; tests are `<capability>.<layer>.test.ts`. Identifier casing follows ADR-001
+- **controller:** binds the route and validates `body`, `query`, and `params` with a `zod` schema (Section 7), maps snake_case wire fields to camelCase once at that boundary, then calls one service
+- **service:** a factory function (`makeOrdersService(ordersRepository)`) or a class taking its repositories in the constructor. It imports no `Request`, `Response`, or HTTP status code, and throws typed errors from `src/shared/errors/`
+- **repository:** the only layer that imports the database client; parameterized statements only (`$1`, `$2`), never string interpolation of input
+- **error mapping:** one error-handling middleware translates domain errors (`NotFoundError`, `ConflictError`, `ValidationError`) to status codes; handlers do not
+- **enforcement:** declare the dependency direction in `dependency-cruiser` (`forbidden` rules: models import nothing, repositories do not import services or controllers, services do not import controllers, no path from one capability's non-service folders into another's) and run it in CI. `eslint-plugin-boundaries` is an equivalent
+
+```typescript
+// src/capabilities/orders/controllers/orders.controller.ts
+export function makeOrdersController(ordersService: OrdersService) {
+  return async function handleCreateOrder(req: Request, res: Response) {
+    const input = createOrderRequest.parse(req.body)               // shape validation, wire to camelCase
+    const order = await ordersService.createOrder(input)           // business rules live in the service
+    res.status(201).json(toOrderResponse(order))                   // view whitelists the fields
+  }
+}
+```
+
+#### Failure Mode
+A handler that calls the database client directly, or a service that imports `express`. A
+`dependency-cruiser` config that exists but is not run in CI, so the direction is stated and never
+enforced.
+
+---
+
 ## Failure Modes
 
 - unhandled promise rejections crash the process silently in older Node; always register a global handler
 - `any` types defeat TypeScript's compile-time contract enforcement and hide schema violations
-- calling `process.env` at call sites instead of `config.ts` creates configuration drift
+- calling `process.env` at call sites instead of `config/env.ts` creates configuration drift
 - committing `.env` files exposes secrets in version history even after deletion
 - missing `.catch()` on a Promise chain that throws causes silent failures
+- a handler that reaches the database client directly, or a service that imports the HTTP framework, defeats the layering that makes services testable without a server or a database
 - instantiating a third-party SDK client per-file instead of centrally lets call sites drift out of sync: different retry config, different API version, a forgotten timeout override
 
 ---
@@ -430,13 +462,14 @@ const lineTotal = item.priceCents * item.quantity;
 
 Node.js/TypeScript code meets this standard when:
 - `tsconfig.json` has `strict: true`
-- `src/config.ts` exists and all env vars are read there
+- `src/config/env.ts` exists and all env vars are read there
 - required env vars throw at startup if missing
 - all async functions have try/catch with typed error classes
 - retry logic is applied to transient external calls
 - all logs use pino/winston JSON format and exclude secrets
 - `zod` or equivalent validates external data at boundaries
 - tests use jest/vitest with mocked external dependencies
+- every capability has `controllers/`, `services/`, `repositories/`, `models/`, and `views/` with `<capability>.<layer>.ts` names, and the dependency direction is enforced by `dependency-cruiser` (or equivalent) in CI
 - third-party SDK clients are instantiated once in a shared module and imported, not re-instantiated per route/file
 - all public functions, classes, interfaces, and modules have JSDoc
 - inline comments explain why, not what

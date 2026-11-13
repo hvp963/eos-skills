@@ -24,7 +24,7 @@ slos:
 The budget for availability is 43 minutes per 30 days. In the last quarter it was spent twice;
 both times the release train paused for reliability work, which is the mechanism working.
 
-## Dependency ranking and breaker configuration (`src/config.ts`)
+## Dependency ranking and breaker configuration (`src/config/env.ts`)
 
 ```typescript
 export const dependencies = {

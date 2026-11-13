@@ -221,27 +221,37 @@ def get_order_total(order_id: str, db: DatabaseClient) -> int:
     """
 ```
 
-## 13. Model-View-Controller Layering
+## 13. Capability-Based MVCS Layering
 
 ```
-// forbidden — business logic and rendering mixed into the route handler
+// forbidden: business logic, persistence, and rendering in the route handler
 function handleCreateRotation(request, response):
     if len(request.body.name) < 3: throw ValidationError("name too short")
     rotation = db.insert("rotations", { name: request.body.name, service_id: request.body.service_id })
     response.send("<div>Created rotation " + rotation.name + "</div>")
 
-// correct — Controller orchestrates only; Model owns the rule; View owns rendering
-// models/rotation.ts
-function createRotation(input, db):
+// correct: each layer does one job; the service receives its repository
+// rotations/models/rotation.ts
+type Rotation = { id, name, serviceId }
+
+// rotations/repositories/rotation-repository.ts
+function insertRotation(db, input): Rotation
+    return db.insert("rotations", { name: input.name, service_id: input.serviceId })
+
+// rotations/services/rotation-service.ts
+function createRotation(input, rotationRepository):
     if len(input.name) < 3: throw ValidationError(ROTATIONS_MESSAGES.NAME_TOO_SHORT)
-    return db.insert("rotations", { name: input.name, service_id: input.service_id })
+    return rotationRepository.insert(input)
 
-// views/pages/RotationCreated.ts
-function renderRotationCreated(rotation):
-    return template("rotation-created", { name: rotation.name })
+// rotations/views/rotation-view.ts
+function toRotationResponse(rotation):
+    return { id: rotation.id, name: rotation.name }          // whitelist
 
-// controllers/rotations.ts
+// rotations/controllers/rotation-controller.ts
 function handleCreateRotation(request, response):
-    rotation = createRotation(request.body, db)          // Model
-    response.send(renderRotationCreated(rotation))         // View
+    input = parseCreateRotation(request.body)                 // shape validation
+    rotation = rotationService.createRotation(input)          // service, repository already injected
+    response.status(201).send(toRotationResponse(rotation))   // view
 ```
+
+The fixed layout, one tree per transport, and the composition-root wiring are in `mvcs-layout.md`.

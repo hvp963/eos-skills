@@ -23,7 +23,7 @@ is genuinely unknown and narrow it explicitly.
 
 ## 2. Configuration Module
 
-Create `src/config.ts`. Export typed constants. Read env vars once at module load; never
+Create `src/config/env.ts`. Export typed constants. Read env vars once at module load; never
 call `process.env` at call sites.
 - required values: a `requireEnv(key)` helper that throws at startup if missing
 - optional values: `process.env.X ?? 'default'` with an explicit default
@@ -85,27 +85,41 @@ Python (`@param`, `@returns`, `@throws`), same tags in both languages.
 - inline comments: why, never what
 - do not document internal single-call helpers with self-explanatory names, or constructor bodies already covered by the class JSDoc
 
-See `references/examples.md` for full code samples of each rule above.
+See `references/examples.md` for full code samples of each rule above and the MVCS layout reference in `eng-os-coding-standards-common` for the layout.
+
+## 11. Capability Layout (MVCS)
+
+Applies `eng-os-coding-standards-common` Standard 13 to TypeScript. Layers, folders, and dependency
+direction are defined there; this section adds only the TypeScript specifics.
+
+- file names: `<capability>.<layer>.ts` in kebab-case (`orders.controller.ts`, `orders.service.ts`, `orders.repository.ts`, `orders.model.ts`, `orders.view.ts`); tests are `<capability>.<layer>.test.ts`; identifier casing follows ADR-001
+- controller: binds the route and validates `body`, `query`, and `params` with a `zod` schema, mapping snake_case wire fields to camelCase once at that boundary, then calls one service
+- service: a factory function (`makeOrdersService(ordersRepository)`) or a class taking repositories in the constructor; imports no `Request`, `Response`, or status code; throws typed errors from `src/shared/errors/`
+- repository: the only layer that imports the database client; parameterized statements only (`$1`, `$2`)
+- error mapping: one error-handling middleware translates domain errors to status codes
+- enforcement: declare the dependency direction in `dependency-cruiser` (`forbidden` rules) or `eslint-plugin-boundaries` and run it in CI
 
 ## Failure Modes
 
 - unhandled promise rejections crash the process silently in older Node; always register a global handler
 - `any` types defeat TypeScript's compile-time contract enforcement and hide schema violations
-- calling `process.env` at call sites instead of `config.ts` creates configuration drift
+- calling `process.env` at call sites instead of `config/env.ts` creates configuration drift
 - committing `.env` files exposes secrets in version history even after deletion
 - missing `.catch()` on a Promise chain that throws causes silent failures
+- a handler that reaches the database client directly, or a service that imports the HTTP framework, defeats the layering that makes services testable without a server or a database
 - instantiating a third-party SDK client per-file instead of centrally causes config/auth drift across call sites
 
 ## Definition of Done
 
 - [ ] `tsconfig.json` has `strict: true`
-- [ ] `src/config.ts` exists and all env vars are read there
+- [ ] `src/config/env.ts` exists and all env vars are read there
 - [ ] required env vars throw at startup if missing
 - [ ] all async functions have try/catch with typed error classes
 - [ ] retry logic is applied to transient external calls
 - [ ] all logs use pino/winston JSON format and exclude secrets
 - [ ] `zod` or equivalent validates external data at boundaries
 - [ ] tests use jest/vitest with mocked external dependencies
+- [ ] every capability has `controllers/`, `services/`, `repositories/`, `models/`, and `views/` with `<capability>.<layer>.ts` names, and the dependency direction is enforced by `dependency-cruiser` (or equivalent) in CI
 - [ ] third-party SDK clients are instantiated once in a shared module and imported, not re-instantiated per route/file
 - [ ] all public functions, classes, interfaces, and modules have JSDoc
 - [ ] inline comments explain why, not what

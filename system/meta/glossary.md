@@ -255,26 +255,54 @@ A codebase is not "more correct" for being more object-oriented. Judge OOD choic
 
 ---
 
-## Model-View-Controller (MVC)
-A mandatory three-layer separation for any application, web or otherwise: **Model** (data shape,
-persistence, business/domain rules; no rendering, no I/O framing), **View** (presentation only;
-rendering, layout, formatting for the output medium; no business logic), **Controller** (thin
-orchestration of a single request/command/action: reads input, calls the Model, invokes the View).
-See `eng-os-coding-standards-common` §13. Not web-specific; a CLI tool or backend service applies the same
-separation with its own equivalents (a command handler is a Controller; console/JSON output
-formatting is a View).
+## Capability-Based MVCS
+The mandatory layering for any application, web or otherwise. Code is grouped by **capability**
+(one business concern with its own data, rules, and entry points) and, inside each capability,
+into five layers in five folders that always exist: **Controller** (binds one request, command, or
+message to a service; validates input shape; thin), **Service** (business rules, orchestration,
+the transaction boundary; no transport types), **Repository** (all data access), **Model**
+(record structures and domain types), **View** (output shapes with a field whitelist).
+Dependencies flow controllers, services, repositories, models only; views are called by
+controllers. See `eng-os-coding-standards-common` §13 and `micro/project-structure.md` Section 2.
+Not web-specific: a command handler or a queue handler is a Controller; terminal output or an
+outbound event payload is a View.
 
 ### Example
-A route handler (`Controller`) that validates a request, calls `createRotation()` (`Model`) to
-apply a business rule, and calls `renderRotationCreated()` (`View`) to format the response, rather
-than validating, persisting, and formatting all inline in the handler itself.
+A route handler (`Controller`) that validates a request body, calls `createRotation()` on a
+`RotationService` that was handed its `RotationRepository` at startup, and passes the result to
+`toRotationResponse()` (`View`), rather than validating, persisting, and formatting inside the
+handler.
 
 ### Notes
-The layers are named by responsibility, not by literal folder name: a state-store-based frontend
-(hooks/store instead of a classic "Controller" object) still complies as long as data/business
-rules, presentation, and orchestration stay in three separate places. The failure mode this
-standard exists to prevent is folding all three into one file/function, not the absence of a
-folder literally named `controllers/`.
+The five folders exist for every capability from its first file, whatever its size; there is no
+threshold at which a layer is added later. The failure mode this standard exists to prevent is
+code placed wherever is convenient, and the restructure that follows.
+
+---
+
+## Capability
+One business concern (orders, billing, shipments) that owns its data, rules, and entry points and
+is organized as the five MVCS layers. One capability reaches another only through the other's
+services or through events, never through its repositories, models, controllers, or views.
+
+---
+
+## Repository
+The layer that owns all data access for a capability: queries, parameterized statements, and
+external-store clients. A service receives its repository by injection and never constructs it.
+
+---
+
+## Composition Root
+The single module (`app` or `main`) where repositories are built, injected into services, and
+controllers are mounted. It is the only place that names both a service and the repository it
+receives.
+
+---
+
+## Workflow
+Orchestration that coordinates two or more capabilities synchronously, or that would make two
+services import each other. It lives in `workflows/` and calls capability services.
 
 ---
 
@@ -874,7 +902,7 @@ See `micro/project-structure.md` for the canonical folder layout by project type
 The rule that dependencies between modules flow in one direction only, from higher-level entry points down to lower-level utilities and config. Circular imports are forbidden.
 
 ### Example
-`main.py` imports from `src/order_processor.py`, which imports from `src/config.py`. `src/config.py` imports nothing from src. This forms an acyclic graph.
+`app.py` imports `OrdersController`, which imports `OrdersService`, which imports `OrdersRepository`, which imports `OrdersModel` and `src/config/database.py`. Nothing in `models/` or `config/` imports from `src/`. This forms an acyclic graph.
 
 ### Notes
 Violation of dependency direction creates circular imports and prevents independent testing. See `micro/project-structure.md` Section 8 and `micro/coding-standards/python.md` Section 10.
@@ -1151,7 +1179,7 @@ Produced in `eng-os-plan-app` Phase 4, recorded in CLAUDE.md, and enforced by `e
 The table in `eng-os-core` that maps a trigger (a new endpoint, a migration, a test file) to the skill that must run before work continues.
 
 ### Example
-A new route handler hits the rows for API contracts, MVC placement, and input validation, so three skills run before the task is called done.
+A new route handler hits the rows for API contracts, MVCS placement, and input validation, so three skills run before the task is called done.
 
 ### Notes
 Each row is a stop condition, not a suggestion. A skipped checkpoint is drift regardless of output quality.

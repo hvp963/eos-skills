@@ -114,36 +114,53 @@ Next sequence number (single project-wide counter): 000001
 ## Project Structure
 
 [Every folder and its purpose, per micro/project-structure.md. For any project with a UI, the
-structure reflects MVC (coding-standards-common Standard 13) and the four-region app shell
-(design-system App Shell).]
+structure reflects capability-based MVCS (coding-standards-common Standard 13) with all five
+layer folders per capability and, for a UI, the four-region app shell (design-system App Shell).]
 
-Example (backend/pipeline project):
-ids/        AI-IDS specification files (.ids), plain text, at project root
-src/        Source modules
-  config.py All environment variables read here; never call os.getenv() elsewhere
-input/      Input files (declare whether gitignored or versioned)
-output/     Pipeline output (gitignored)
-logs/       Structured log files (gitignored)
-docs/
-  decisions/  Architecture Decision Records
-  contracts/  Data contracts and output schemas
-  prompts/    Prompt registry entries for every .ids file
-tests/      pytest or equivalent test suite
-main.py     Entry point
-
-Example (web app project, MVC + app shell):
+Example (API or worker project, MVCS):
 src/
-  models/       Data shape, persistence, business rules; no rendering, no framework I/O
-  views/
-    shell/      AppHeader, AppFooter, NavPanel: the three shared shell regions
-    pages/      Application-panel content per route: the fourth region
-    components/ Reusable UI components shared across 2+ pages
-  controllers/  Route/page handlers; orchestrate Model + View only
-  constants/    Sectioned by app area: labels, messages, config, business constants
-  config.ts     All env vars read here; never read process.env elsewhere
-  styles/       Global CSS/tokens; no hardcoded styles in components
+  main.ts / server.ts  Entry point: starts the process only
+  app.ts               Composition root: builds repositories, injects them into services, mounts controllers
+  config/
+    env.ts             All env vars read here; never read process.env elsewhere
+    database.ts        Connection pool
+  capabilities/
+    orders/            One folder per capability; all five layer folders from the first file
+      controllers/     Route/command/message binding + shape validation; one service call, one view call
+      services/        Business rules, orchestration, transaction boundary; no transport imports
+      repositories/    All data access, parameterized statements; injected into services
+      models/          Record structures and domain types
+      views/           Output shapes, whitelisted fields
+  workflows/           Orchestration across two or more capabilities
+  shared/              errors/, middleware/, events/, utils/ (used by 2+ capabilities)
+database/              schema.sql, migrations/, seed.sql
+ids/                   AI-IDS specification files (.ids), plain text, at project root (AI projects only)
 docs/
-  decisions/    Architecture Decision Records
+  decisions/           Architecture Decision Records
+  contracts/           Data contracts and output schemas
+  prompts/             Prompt registry entries for every .ids file
+tests/                 Mirrors src/ layer for layer, one test file per source file
+logs/                  Structured log files (gitignored)
+
+Example (UI application, MVCS + app shell):
+src/
+  app.ts               Composition root
+  config/env.ts        All env vars read here
+  capabilities/
+    rotations/
+      controllers/     Page/route handlers; one service call, one view call
+      services/        Business rules
+      repositories/    API client or local-store access, injected into services
+      models/          Data shape and domain types
+      views/           Page content for this capability: the application-panel region
+  shared/
+    views/
+      shell/           AppHeader, AppFooter, NavPanel: the three shared shell regions
+      components/      Reusable UI components used on 2+ pages
+    constants/         Sectioned by app area: labels, messages, config, business constants
+  styles/              Global CSS/tokens; no hardcoded styles in components
+docs/
+  decisions/           Architecture Decision Records
 tests/
 
 ---

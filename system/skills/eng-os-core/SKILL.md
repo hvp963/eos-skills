@@ -49,7 +49,7 @@ Invoke the named skill when the trigger is hit, run its Definition of Done, then
 | Any naming decision (variable, file, class, constant, env var, term) | `eng-os-code-conventions` (Terminology Lock) |
 | New user-facing message | `eng-os-coding-standards-common` Standard 3: unique `{AAA}{NNNNNN}` code from the project's Message Area Codes |
 | Public function complete | language coding-standards skill |
-| Route, page, or command handler, or its business logic | `eng-os-coding-standards-common` Standard 13 (MVC) |
+| New capability, or a route, page, command, or message handler, or its business logic | `eng-os-coding-standards-common` Standard 13 (MVCS): all five layer folders, dependency direction, injected repositories |
 | Endpoint, event, or schema contract | `eng-os-api-design` |
 | Table, index, or migration | `eng-os-database-design` |
 | Data pipeline, batch or streaming job, ingestion, or a freshness SLA | `eng-os-data-strategy` |

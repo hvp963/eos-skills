@@ -47,7 +47,8 @@ project-root/
 ├── CLAUDE.md         ← AI agent instructions — must exist before implementation begins
 ├── ids/              ← AI-IDS specification files (.ids) — present only in AI projects
 │                       lives at the root because it is a specification artifact, not code
-├── src/              ← all source modules
+├── src/              ← all source modules, organized per Section 2 (capabilities, layers)
+├── database/         ← schema.sql, migrations/, seed.sql — present when the project owns a database
 ├── input/            ← raw input files consumed by the project
 ├── output/           ← files produced by the project
 ├── logs/             ← runtime log files
@@ -56,8 +57,7 @@ project-root/
 │   ├── contracts/    ← data contracts and output schemas
 │   ├── prompts/      ← prompt registry entries for every .ids file
 │   └── runbooks/     ← operational runbooks
-├── tests/            ← test suite
-├── main.py / app.py  ← entry point (one per project)
+├── tests/            ← test suite, mirrors src/ layer for layer (Section 7)
 ├── requirements.txt  ← or package.json / pyproject.toml
 ├── .env.example      ← environment variable documentation
 ├── .env              ← local secrets (always gitignored)
@@ -68,7 +68,7 @@ project-root/
 
 **Required declarations before first file:**
 1. Confirm `src/` as the source folder (framework overrides must be declared explicitly in CLAUDE.md)
-2. Whether `config.py` lives inside `src/` or in a separate `config/` folder
+2. The list of capabilities known at the start, each with its five layer folders (Section 2)
 3. Which of `input/`, `output/`, `logs/` are needed and whether they are gitignored
 
 #### Why
@@ -97,52 +97,89 @@ Ad-hoc folder creation, mixed concerns in a single folder, or structure invented
 
 ## 2. Source Module Organization (`src/`)
 
-The source folder contains all application logic. It is a Python package (with `__init__.py`) or a TypeScript module tree. The config module is its only internal dependency that is not also a source module.
+The source folder is organized by capability first and by layer second, per
+`coding-standards/common.md` Standard 13. A capability is one business concern with its own
+data, rules, and entry points (`orders`, `billing`, `shipments`). Every capability has the same
+five layer folders from its first file, whether the application is an HTTP API, a UI, a CLI, a
+worker, or a mix. There is no size threshold: the layout is identical for a capability with one
+file per layer and one with fifty.
 
 ```
 src/
-├── __init__.py          ← makes src/ a package (Python); leave empty unless re-exporting
-├── config.py            ← ALL environment variables read here (Standard 2 of common.md)
-├── [domain_noun].py     ← one module per cohesive responsibility
-├── [domain_noun].py
-└── ...
+├── main.py / server.ts      ← entry point: starts the process, nothing else
+├── app.py / app.ts          ← composition root: builds repositories, injects them into services,
+│                              mounts controllers; the only place that wires layers together
+├── config/                  ← ALL environment variables read here (Standard 2 of common.md)
+│   ├── env                  ← validated environment settings
+│   └── database             ← connection pool initialization
+├── capabilities/
+│   └── <capability>/        ← e.g. orders/
+│       ├── controllers/     ← entry point: route/command/message binding + shape validation
+│       ├── services/        ← business rules, orchestration, transaction boundary
+│       ├── repositories/    ← all data access
+│       ├── models/          ← record structures and domain types
+│       └── views/           ← output shapes (whitelisted fields)
+├── workflows/               ← orchestration across two or more capabilities
+│   └── <workflow-name>
+└── shared/                  ← used by two or more capabilities, no capability-specific rules
+    ├── errors/              ← typed domain errors
+    ├── middleware/
+    ├── events/              ← internal event bus for asynchronous side effects
+    └── utils/
 ```
 
 **Rules:**
-- One module = one cohesive responsibility, not one module per function
-- Module names are snake_case nouns describing what the module is, not what it does (`order_processor`, not `process_orders`)
-- The config module is the only module every other module may import: it has no siblings as dependencies
+- Every capability has all five layer folders, created together when the capability is created; an empty folder is correct, a missing one is a defect
+- Dependency flows `controllers` to `services` to `repositories` to `models`; `views` are called by controllers. A lower layer never imports a higher one
+- Services receive repositories by injection; `app` is the only module that constructs both
+- A capability never imports another capability's `controllers/`, `repositories/`, `models/`, or `views/`. It calls that capability's `services/` or publishes to `shared/events/`
+- Two or more capabilities coordinated synchronously, or two services that would import each other, go in `workflows/`
+- `shared/` holds code used by two or more capabilities. Code used by one capability stays in that capability, and extracting it to `shared/` happens on the second user, not before
+- The config module is the only module every other module may import
 - Circular imports are forbidden: dependency must be acyclic
-- `main.py` or `app.py` at the project root imports from `src/`; modules inside `src/` do not import from `main.py`
+- `main` and `app` are the only modules that import from every layer; nothing imports from them
+
+**The same layout for each transport.** The five folders do not change; only what the controller
+binds to and what the view produces.
 
 ```
-Correct dependency direction:
-
-main.py
-  └── imports src.order_processor
-        └── imports src.config
-        └── imports src.record_validator
-              └── imports src.config
-
-Forbidden:
-
-src.order_processor imports src.csv_writer   ← unrelated modules coupled
-src.config imports src.order_processor       ← direction reversed
-main.py imports config directly               ← bypasses src package boundary
+HTTP API:        controllers/ = route + handler    views/ = response payload
+UI application:  controllers/ = page/route handler  views/ = pages and components
+                 shared/views/shell/ = header, footer, nav panel (the app shell)
+                 shared/views/components/ = components used on 2+ pages
+CLI:             controllers/ = command handler     views/ = terminal output formatting
+Worker:          controllers/ = queue/topic/schedule handler
+                                                    views/ = result record, outbound payload
 ```
+
+**File naming.** The layer is visible in every file's name, in the form each language standard
+defines (`coding-standards/nodejs.md` and `coding-standards/python.md`). The capability name is
+plural or singular consistently across a project, as declared in the Terminology Lock.
+
+| Layer | Node.js / TypeScript | Python |
+|---|---|---|
+| Controller | `<capability>.controller.ts` | `<capability>_controller.py` |
+| Service | `<capability>.service.ts` | `<capability>_service.py` |
+| Repository | `<capability>.repository.ts` | `<capability>_repository.py` |
+| Model | `<capability>.model.ts` | `<capability>_model.py` |
+| View | `<capability>.view.ts` | `<capability>_view.py` |
+| Test | `<capability>.<layer>.test.ts` | `test_<capability>_<layer>.py` |
+
+A capability with several files in one layer names each by the thing it holds
+(`order-line.model.ts`, `order_line_model.py`); the layer suffix stays.
 
 #### Failure Mode
 
-`helpers.py` or `utils.py` containing unrelated functions from multiple domains. God modules that own too many responsibilities. Circular imports that prevent independent testing.
+`helpers.py` or `utils.py` containing unrelated functions from multiple domains. God modules that own too many responsibilities. A layer folder omitted because the capability "is small," so the next change has to restructure it. A capability importing another's repository. Services that build their own database client. Circular imports that prevent independent testing.
 
 ---
 
 ## 3. Configuration Module
 
-All environment variables and configuration constants must be read in a single configuration module: `src/config.py` or `config/config.py`. This module is the only place in the codebase where `os.getenv()` is called.
+All environment variables and configuration constants must be read in a single configuration module, `src/config/` (`env.py` or `env.ts`). This module is the only place in the codebase where `os.getenv()` or `process.env` is read.
 
 ```python
-# src/config.py
+# src/config/env.py
 
 import os
 
@@ -157,7 +194,7 @@ TIMEOUT_SECS = float(os.getenv("TIMEOUT_SECS", "30.0"))
 - Required values: use `os.environ["KEY"]`; raises `KeyError` at startup if absent
 - Optional values: use `os.getenv("KEY", "default")`; always provide an explicit default
 - No `os.getenv()` calls outside this module
-- `.env.example` must list every variable declared in `config.py` with description and default value
+- `.env.example` must list every variable declared in the config module with description and default value
 
 #### Failure Mode
 
@@ -264,27 +301,36 @@ Design decisions recorded only in Slack threads or PR descriptions. No data cont
 
 ## 7. Test Organization
 
-Tests live in a top-level `tests/` directory that mirrors the structure of `src/`.
+Tests live in a top-level `tests/` directory that mirrors `src/` layer for layer, with one test file per source file.
 
 ```
 tests/
-├── __init__.py
-├── test_config.py          ← if config has startup validation logic
-├── test_order_processor.py ← mirrors src/order_processor.py
-├── test_record_validator.py ← mirrors src/record_validator.py
-└── ...
+├── conftest.py / setup.ts                ← shared fixtures, database transactions, teardown
+├── capabilities/
+│   └── <capability>/
+│       ├── controllers/<capability>.controller.test.ts   (Python: test_<capability>_controller.py)
+│       ├── services/<capability>.service.test.ts
+│       ├── repositories/<capability>.repository.test.ts
+│       ├── models/<capability>.model.test.ts
+│       └── views/<capability>.view.test.ts
+├── workflows/<workflow-name>.workflow.test.ts
+└── shared/
+    └── middleware/
 ```
 
 **Rules:**
-- One test file per source module: `test_<module_name>.py` matches `src/<module_name>.py`
+- Every capability and workflow added to `src/` gets its mirrored test folder in the same task
+- One test file per source file, at the same relative path under `tests/`
 - Tests must not live inside `src/`: they are not source modules
+- Service tests inject a fake or in-memory repository; they never need a database
+- Repository tests run against a real database inside a transaction that rolls back
 - Every external dependency (network calls, file I/O, API calls) must be mocked in unit tests
 - Integration tests may use real dependencies within a controlled environment and must be in a separate subfolder (`tests/integration/`)
 - Test filenames and function names must be descriptive: `test_process_order_raises_when_invalid` is correct; `test_case_1` is not
 
 #### Failure Mode
 
-Tests mixed into `src/`. No test file for a module, discovered only at review. Integration tests and unit tests in the same file, breaking environment isolation.
+Tests mixed into `src/`. No test file for a source file, discovered only at review. A test tree whose shape differs from `src/`, so no one can tell what is untested. Service tests that need a live database because the service builds its own repository. Integration tests and unit tests in the same file, breaking environment isolation.
 
 ---
 
@@ -298,7 +344,7 @@ A module owns one cohesive cluster of related types and functions. All classes i
 
 ```
 Correct — one module, one concern:
-src/order_processor.py     OrderItem (dataclass), process_order()
+src/capabilities/orders/models/orders_model.py     OrderItem (dataclass)
 src/csv_writer.py          write_csv()
 src/ai_cleaner.py          AICleanerError, clean_text_with_ai()
 
@@ -320,14 +366,18 @@ src/utils.py          everything that didn't have a home
 Dependencies flow in one direction only. A violation is a design error, not a style preference.
 
 ```
-main.py                     ← entry point; imports from src/
-  src/order_processor.py   ← imports config, record_validator
-  src/record_validator.py  ← imports config, ai_cleaner
-  src/ai_cleaner.py        ← imports config only
-  src/config.py            ← imports nothing from src/
+app                                        ← composition root; wires everything
+  capabilities/orders/controllers          ← imports its own services, views, shared/errors
+    capabilities/orders/services           ← imports its own repositories (injected), models, shared
+      capabilities/orders/repositories     ← imports its own models, config/database
+        capabilities/orders/models         ← imports nothing from src/
+  config/                                  ← imports nothing from src/
 ```
 
-Lower modules (config, shared utilities) must not import from higher modules (business logic, entry points). If a lower module needs something from a higher one, the dependency direction is wrong: restructure.
+Lower layers (models, repositories, config, shared utilities) must not import from higher layers
+(services, controllers, entry points). If a lower layer needs something from a higher one, the
+dependency direction is wrong: restructure. Across capabilities the only permitted import is
+`<other-capability>/services/` (or `shared/events/`).
 
 ### Dataclasses and Value Objects
 
@@ -357,8 +407,8 @@ A `utils.py` module that every other module imports from, creating a coupling hu
 | Artifact | Convention | Example |
 |---|---|---|
 | Folder | kebab-case or snake_case (consistent per project) | `src/`, `ids/`, `docs/decisions/` |
-| Python module | snake_case noun | `order_processor.py`, `record_validator.py` |
-| TypeScript module | camelCase or kebab-case (match framework) | `orderProcessor.ts`, `record-validator.ts` |
+| Python module | snake_case noun, layer suffix | `orders_service.py`, `orders_repository.py` |
+| TypeScript module | kebab-case, dotted layer suffix | `orders.service.ts`, `order-line.model.ts` |
 | Python class | PascalCase noun | `OrderItem`, `FetchError` |
 | TypeScript class/interface | PascalCase noun | `OrderItem`, `FetchError` |
 | Python function / method | snake_case verb phrase | `process_order()`, `validate_record()` |
@@ -381,10 +431,12 @@ Inconsistent naming within a project (some modules snake_case, some PascalCase).
 
 - Structure invented mid-implementation and never declared: file placement becomes arbitrary
 - `utils.py` or `helpers.py` created as a catch-all: accumulates unrelated code, creates coupling
-- Config values read at call sites instead of in `config.py`: configuration drift
+- Config values read at call sites instead of in `src/config/`: configuration drift
 - `.ids` files embedded as string constants in harness code: specification not independently reviewable
 - `output/` committed to version control: runtime artifacts pollute source history
 - Test files inside `src/`: source and test concerns mixed
+- A capability missing one or more of its five layer folders: the structure differs capability to capability and the next change restructures it
+- Cross-capability imports of repositories, models, controllers, or views: hidden coupling
 - ADRs for significant decisions never written: rationale is lost
 - `docs/` folder flat with no subfolders: artifact types mixed, impossible to navigate
 
@@ -395,11 +447,12 @@ Inconsistent naming within a project (some modules snake_case, some PascalCase).
 A project structure meets this standard when:
 - Every folder is declared and its purpose documented in CLAUDE.md before the first file is created
 - `src/` is the sole location for source modules; no source code in the project root
-- `src/config.py` (or `config/config.py`) is the only file that calls `os.getenv()`
+- `src/config/` is the only place that reads environment variables
 - `ids/` exists and contains only `.ids` files if the project uses AI systems
 - `input/`, `output/`, and `logs/` are present and gitignored if the project is a pipeline
 - `docs/decisions/`, `docs/contracts/`, and `docs/prompts/` are populated as work progresses
-- `tests/` mirrors `src/` with one test file per source module
+- every capability has `controllers/`, `services/`, `repositories/`, `models/`, and `views/` under `src/capabilities/<capability>/`
+- `tests/` mirrors `src/` layer for layer with one test file per source file
 - No `utils.py` or `helpers.py` catch-all modules exist
 - All classes follow the naming conventions in Section 9
-- Dependency direction is acyclic and flows from `main.py` → `src/` → `src/config.py`
+- Dependency direction is acyclic and flows controllers, services, repositories, models, with no cross-capability imports except through services or events

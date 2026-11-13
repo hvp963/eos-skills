@@ -89,9 +89,9 @@ Step 3: Confirm CLAUDE.md is complete
   the project to the practice it names. The gate requires a concrete answer (an actual path,
   folder, or component name) or an explicit reasoned skip for each of: constants/messages
   sectioned by area with a project-wide message-code sequence, all user-facing strings as
-  constants, business logic in the Model layer, global CSS with no hardcoded styles, the
-  four-region app shell (header/footer/nav/application panel), reusable components, MVC for
-  any app type, responsive breakpoints, and the config/env file location.
+  constants, capability-based MVCS layering (five layer folders per capability, injected repositories, enforced dependency direction), global CSS with no hardcoded styles, the
+  four-region app shell (header/footer/nav/application panel), reusable components, a transport
+  mapping for any app type, responsive breakpoints, and the config/env file location.
 
 Step 4: Define the project structure
   Apply micro/project-structure.md to specify the folder layout
@@ -137,8 +137,10 @@ Treat all standards as non-negotiable requirements, not references.
 
 Example:
 ids/        AI-IDS specification files (.ids); plain text, at project root not inside src/
-src/        Source modules
-  config.py All environment variables read here; never call os.getenv() elsewhere
+src/        Source modules, one folder per capability with controllers/ services/ repositories/ models/ views/
+  main.py   Entry point; loads .env, orchestrates pipeline
+  app.py    Composition root: builds repositories, injects them into services
+  config/env.py All environment variables read here; never call os.getenv() elsewhere
 input/      Input files (gitignored or versioned; declare explicitly)
 output/     Pipeline output (gitignored)
 logs/       Structured log files (gitignored)
@@ -146,8 +148,7 @@ docs/
   decisions/  Architecture Decision Records
   contracts/  Data contracts and output schemas
   prompts/    Prompt registry entries for every .ids file
-tests/      pytest or equivalent test suite
-main.py     Entry point; loads .env, orchestrates pipeline
+tests/      pytest or equivalent test suite, mirrors src/ layer for layer
 
 ---
 
@@ -181,7 +182,7 @@ Run every applicable checklist before marking any task complete.
 
 ### Code (common.md + python.md or nodejs.md)
 
-- [ ] All env vars read in config.py; no os.getenv() at call sites
+- [ ] All env vars read in src/config/env.py; no os.getenv() at call sites
 - [ ] Required secrets raise EnvironmentError at startup if absent
 - [ ] Optional secrets emit a startup warning when absent
 - [ ] All external calls (network, file I/O, API) wrapped in try/catch with specific types
