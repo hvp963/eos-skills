@@ -94,13 +94,19 @@ See `references/examples.md` for full code samples of each rule above and the MV
 Applies `eng-os-coding-standards-common` Standard 13 to Python. Layers, folders, and dependency
 direction are defined there; this section adds only the Python specifics.
 
-- file names: `<capability>_<layer>.py` (`orders_controller.py`, `orders_service.py`, `orders_repository.py`, `orders_model.py`, `orders_view.py`); tests are `test_<capability>_<layer>.py`
+- file names are snake_case `<topic>_<layer>.py`, where the topic is the concept the file is about, not necessarily the capability's name:
+  - `_controller.py`: a route handler or command handler, topic is the resource; plural for the collection route (`/orders`), singular for one item (`/orders/{id}`); an uncountable noun keeps one form
+  - `_page.py`: a page handler in a UI framework (Streamlit, NiceGUI, Flask or Django view serving a template), topic is the last segment of the URL it serves (`checkout_page.py` serves `/checkout`, whichever capability owns it)
+  - `_service.py`, `_repository.py`, `_model.py`: topic is the concept (`orders_service.py`)
+  - in `views/`: a UI component or template helper is `<name>_component.py`, an output shape is `<name>_view.py`, other data or helpers are snake_case `.py` with no layer suffix
+  - tests are `test_<same name>.py` at the mirrored path
 - controller: binds the route or command and validates input with a `pydantic` model, then calls one service
 - service: a class taking repositories in `__init__`; imports no framework request, response, or status code; raises typed errors from `src/shared/errors/`
 - repository: the only layer that imports the database driver; parameterized statements only (`%s` or named parameters), never f-string SQL
 - model: `dataclass` or `pydantic` types, not dictionaries
+- page and view (UI): the page handler (`_page.py`) is the controller. It reads the route or query parameters, resolves them with a service function, owns the state that must survive navigation (the framework's session or page state), and passes data and callbacks to the view. A component in `views/` receives arguments and keeps only presentation state (expanded or collapsed, hover, a draft not yet submitted). It reads no query parameter, calls no service, and holds nothing the page needs after navigation
 - error mapping: one exception handler registered in `app` translates domain errors to the transport's response
-- enforcement: declare the layer order and capability independence in `import-linter` (`layers` and `independence` or `forbidden` contracts) and run it in CI
+- enforcement: declare the layer order and capability independence in `import-linter` (`layers` and `independence` or `forbidden` contracts) and run it in CI; add a test that walks `src/capabilities/` and fails on a file whose name breaks the rule for its layer folder, with an exception list that may only shrink
 
 ## Failure Modes
 
@@ -112,6 +118,7 @@ direction are defined there; this section adds only the Python specifics.
 - `utils.py` catch-all modules accumulate unrelated code and create coupling hubs
 - dictionaries used as domain objects lose the contract: use dataclasses instead
 - a route function that opens a database connection, or a service that imports the web framework, defeats the layering that makes services testable without a server or a database
+- a UI component that reads a query parameter, validates it and writes it back, or holds state the page needs after navigation, is a controller written inside a view: it passes the import check and still cannot be reused or tested without rendering
 
 ## Definition of Done
 
@@ -127,6 +134,7 @@ direction are defined there; this section adds only the Python specifics.
 - [ ] classes are PascalCase nouns; exceptions end in `Error`
 - [ ] dataclasses are used for value objects instead of untyped dictionaries
 - [ ] no `utils.py` or catch-all modules exist
-- [ ] every capability has `controllers/`, `services/`, `repositories/`, `models/`, and `views/` with `<capability>_<layer>.py` names, and the layer order and capability independence are enforced by `import-linter` (or equivalent) in CI
+- [ ] every capability has `controllers/`, `services/`, `repositories/`, `models/`, and `views/` with `<topic>_<layer>.py` names, a test fails on a file whose name breaks the rule for its folder, and the layer order and capability independence are enforced by `import-linter` (or equivalent) in CI
+- [ ] no file in `views/` reads a route or query parameter, calls a service, or holds state the page needs after navigation
 - [ ] project folder layout follows `micro/project-structure.md` with `src/` as the source folder
 - [ ] `trace_id` is carried in a `ContextVar` from the entry point, not passed through signatures

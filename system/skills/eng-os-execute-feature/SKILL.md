@@ -1,6 +1,6 @@
 ---
 name: eng-os-execute-feature
-description: "Use once scope is approved and before implementation starts: either an approved `.specs/<feature>/tasks.md` from eng-os-spec-feature, or a small feature request on an already-bootstrapped project that needs no spec. Adopts the spec's task list when one exists, otherwise breaks the scope into an ordered task list, each task with its own Definition of Done and commit, and requires a pass/fail verify gate before the next task starts. Governs the sequencing of a build; eng-os-core's checkpoint table governs what standard each task must meet while it runs."
+description: "Use once scope is approved and before implementation starts: either the `.specs/<feature>/tasks.md` ledger from eng-os-spec-feature, or a small feature request on an already-bootstrapped project that needs no spec. Adopts the spec's task list when one exists, otherwise breaks the scope into an ordered task list, each task with its own Definition of Done and commit, and requires a pass/fail verify gate before the next task starts. Governs the sequencing of a build; eng-os-core's checkpoint table governs what standard each task must meet while it runs."
 sources:
   - meta/mental-model.md
   - meta/claude-code-usage.md
@@ -27,11 +27,19 @@ code is written.
 
 ## Phase 1 — Decompose
 
-**If an approved spec exists** (`.specs/<feature>/tasks.md` with its requirements and design
-approved), adopt its task list instead of decomposing again. Check that every task has the five
-fields below (Requirements is the spec's added field), that no dependency points at a later task,
+**If the change alters behavior of a shipped feature that has a `.specs/<feature>/` entry**, stop
+and run `eng-os-spec-feature` Changing a Shipped Feature first. The task list follows the changed
+requirements.
+
+**If a spec exists** (`.specs/<feature>/` with its three ledgers), adopt its task list instead of
+decomposing again. First read the event log and walk the check list in `eng-os-spec-feature`. A
+table that cannot be read goes back to `eng-os-spec-feature` to fix. Findings are reported, not
+blockers: note any row still awaiting approval, and any task that would start on one, in your plan,
+and carry on. Then check that every task has the seven fields below
+(Requirements, Design, and Scenarios are the spec's added fields), that no dependency points at a
+later task,
 and that every Definition of Done is observable. Send a gap back to `eng-os-spec-feature` to fix in
-the spec files. Then go to Phase 2.
+the ledgers. Then go to Phase 2.
 
 **If no spec exists**, produce an ordered task list from the approved scope. Each task must be
 small enough to implement, verify, and commit in one pass; if a task description needs "and" to
@@ -48,8 +56,14 @@ describe what it does, it is probably two tasks. For each task, capture:
 - **Definition of Done**: the specific, observable condition that makes this one task complete.
   Not "it works"; a concrete check: a specific test passes, a specific endpoint returns a
   specific status code, a specific migration is reversible.
-- **Requirements** (spec only): the numbered requirements this task satisfies. A task list
-  built without a spec leaves this field out.
+- **Requirements** (spec only): the numbered requirements this task builds.
+- **Design** (spec only): the design element IDs this task builds.
+- **Scenarios** (spec only): the scenario IDs whose tests this task writes and makes pass, or
+  `none` for a task with no testable behavior, such as a schema migration. A task list built
+  without a spec leaves these three fields out.
+
+The tests are part of the task, never separate test tasks, so a task's Definition of Done says the
+tests for its listed scenarios pass.
 
 Do not decompose by layer (e.g. "write all the models," then "write all the endpoints," then
 "write all the tests"); decompose by vertical slice, so each task is independently demoable and
@@ -73,7 +87,8 @@ branches), which is the `eng-os-model-optimization` default for independent work
 relax: each lane runs Phase 3 to 5 for its own task, each task still verifies before its own
 commit, and a task that depends on a lane's output waits for that lane's Verify, not its start.
 Merge order follows dependency order. Serial execution is the choice to justify ("task 4 reads
-the schema task 2 creates"), not the default.
+the schema task 2 creates"), not the default. Lanes record their own events, each appending its own
+lines to `events.jsonl` and never rewriting an earlier one.
 
 ## Phase 3 — Execute One Task
 
@@ -82,10 +97,13 @@ For the current task only:
 1. Implement it, invoking every `eng-os-core` checkpoint-table skill named for this task in
    Phase 1: this is where the checkpoint table itself does its work; this skill does not
    duplicate that table, it triggers it per task instead of leaving the triggering to chance.
-   With a spec, read the task's requirements in `requirements.md` and the matching section of
-   `design.md` first.
-2. If the work shows the spec is wrong or incomplete, stop and amend the spec file (requirements,
-   design, or tasks), get that change approved, and then continue. Diverging from the spec in
+   With a spec, record the start by appending a `started` line for the task, and read the task's
+   requirements and listed scenarios in `requirements.md` and the design rows it builds in
+   `design.md` first. Write each test named for its scenario (`S8 exactly 90 days is red`) as part
+   of the task, at the layer the Test strategy gives it.
+2. If the work shows the spec is wrong or incomplete, stop and change the spec as
+   `eng-os-spec-feature` Changing a Shipped Feature describes: edit rows that are not frozen, add
+   amending rows for frozen ones, and record the change. Then continue. Diverging from the spec in
    code while leaving the spec unchanged leaves the next task to build on a document that is no
    longer true.
 3. Do not begin the next task's implementation before this task's Verify step (Phase 4) passes.
@@ -99,8 +117,9 @@ Before a task is considered complete:
 
 - Run the task's own Definition of Done condition from Phase 1 and confirm it actually passes,
   not "should pass."
-- With a spec, confirm each acceptance criterion of the requirements the task lists, as well as
-  the task's own Definition of Done.
+- With a spec, confirm that every scenario the task lists has a test named for it and that the test
+  passes, as well as the task's own Definition of Done, and walk the check list to see whether the
+  task left anything out of step.
 - Run the Meta Definition of Done from `eng-os-core`: for every checkpoint-table skill this task
   invoked, confirm that skill's own DoD checklist ran and passed.
 - If verification fails, fix the current task before moving on. Do not proceed to the next task
@@ -113,8 +132,9 @@ One commit per completed, verified task, not one commit for the whole feature, a
 multiple commits within a single task. This keeps `git bisect` meaningful (a bisect lands on one
 task's change, not a tangle of several) and gives the task list a durable audit trail: task list
 order should read as commit-log order when the feature is done. The commit message names the
-task, not the whole feature. With a spec, tick the task's checkbox in `tasks.md` in the same
-commit, so the file always shows which tasks have landed.
+task, not the whole feature. With a spec, append a `done` line for the task first, so the
+commit holds the code together with the updated `events.jsonl`, and the log always shows which
+tasks have landed.
 
 Return to Phase 3 for the next eligible task. Repeat until the task list is exhausted.
 
@@ -123,9 +143,30 @@ Return to Phase 3 for the next eligible task. Repeat until the task list is exha
 Once every task is complete, verify the feature as a whole, not just its parts: the vertical
 slices compose correctly together, and the original approved scope (the Product Brief phase or
 feature request that started this skill) is now satisfied; not just that every
-individual task's narrow DoD passed in isolation. With a spec, walk every acceptance criterion in
-`requirements.md` and mark each one passed, with the check that proved it; a criterion no check
-covers is a gap to fix.
+individual task's narrow DoD passed in isolation. With a spec, run the tests for every active
+scenario of the feature together, including the scenarios that span several tasks. Then walk every
+active requirement in `requirements.md` and record each one whose scenarios all passed with a
+`verified` line, naming the tests that proved it; a requirement with no passing scenario is a gap
+to fix.
+
+## Phase 7 — Sync Living Documents
+
+A feature is not done while the documents that describe the system disagree with the code. After
+Phase 6 passes, check each living document against what shipped, and update the ones that changed
+in the same PR (the rule in `eng-os-documentation-standards`):
+
+| Document | Update when the feature |
+|---|---|
+| README and onboarding steps | Changed how the project is installed, configured, run, or tested |
+| `docs/architecture/` C4 views | Added, removed, or split a service, data store, queue, external dependency, or trust boundary (`eng-os-system-design` Persisting the Model) |
+| API reference and `docs/contracts/` | Changed an endpoint, event, schema, or error code |
+| Runbook | Added a failure mode, an alert, a dependency, or a recovery step |
+| ADR | Made a decision meeting the threshold (new ADR; never edit an accepted one) |
+| `.specs/<feature>/` | Phase 6 or a later change left a requirement, a design row, or a task out of step with the code (change the rows as `eng-os-spec-feature` describes, then walk the check list) |
+| CHANGELOG or release notes | Changed anything a user or integrator can see |
+
+Record the result as one line per row in the final commit or PR description: updated, or "no
+change" with the reason. A row with neither is an unfinished task.
 
 ## When Not to Use the Full Loop
 
@@ -140,9 +181,11 @@ its own bail-out check; do not force ceremony onto work that does not carry real
 Feature execution is complete when: every task from Phase 1 has a passing Definition of Done and
 a corresponding commit; the Meta Definition of Done passed for every checkpoint-table skill any
 task invoked; the Phase 6 feature-level verify passed against the original approved scope (with a
-spec, every acceptance criterion in `requirements.md` passed); no task was left in a
-partially-verified state when work stopped; and with a spec, `tasks.md` shows every task ticked
-and no spec file disagrees with the code that shipped.
+spec, every active scenario's test passed and every active requirement is recorded as verified); no task
+was left in a partially-verified state when work stopped; with a spec, the log shows every active
+task done, the check list turns up nothing unexplained, and no ledger disagrees with the code that
+shipped; and the
+Phase 7 living-document check ran, with each row updated or marked "no change" with a reason.
 
-For a full worked example of this six-phase loop applied to one concrete feature, see
+For a full worked example of this seven-phase loop applied to one concrete feature, see
 `references/execute-feature-example.md`.

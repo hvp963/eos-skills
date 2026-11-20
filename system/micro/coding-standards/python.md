@@ -415,13 +415,14 @@ Applies `common.md` Standard 13 to Python. The five layer folders per capability
 direction, and the composition root are defined there and in `project-structure.md` Section 2;
 this section adds only the Python specifics.
 
-- **file names:** `<capability>_<layer>.py`, for example `orders_controller.py`, `orders_service.py`, `orders_repository.py`, `orders_model.py`, `orders_view.py`; tests are `test_<capability>_<layer>.py`
+- **file names:** snake_case `<topic>_<layer>.py`, where the topic is the concept the file is about, not necessarily the capability's name. `_controller.py` is a route or command handler named for the resource (plural for the collection route `/orders`, singular for one item `/orders/{id}`; an uncountable noun keeps one form). `_page.py` is a page handler in a UI framework (Streamlit, NiceGUI, a Flask or Django view serving a template) named for the last segment of the URL it serves (`checkout_page.py` serves `/checkout`). `_service.py`, `_repository.py` and `_model.py` are named for the concept (`orders_service.py`). In `views/` a UI component is `<name>_component.py`, an output shape is `<name>_view.py`, other data or helpers are snake_case `.py` with no layer suffix. Tests are `test_<same name>.py` at the mirrored path
+- **page and view (UI):** the page handler (`_page.py`) is the controller. It reads the route or query parameters, resolves them with a service function, owns the state that must survive navigation (the framework's session or page state), and passes data and callbacks to the view. A component in `views/` receives arguments and keeps only presentation state (expanded or collapsed, hover, a draft not yet submitted). It reads no query parameter, calls no service, and holds nothing the page needs after navigation
 - **controller:** binds the route or command and validates input with a `pydantic` model, then calls one service
 - **service:** a class taking its repositories in `__init__`. It imports no framework request, response, or status code, and raises typed errors from `src/shared/errors/`
 - **repository:** the only layer that imports the database driver; parameterized statements only (`%s` or named parameters), never f-string SQL
 - **model:** `dataclass` or `pydantic` types, not dictionaries (see `project-structure.md` Section 8)
 - **error mapping:** one exception handler registered in `app` translates domain errors to the transport's response; handlers do not
-- **enforcement:** declare the layer order and capability independence in `import-linter` (a `layers` contract for controllers, services, repositories, models, and `independence` or `forbidden` contracts between capabilities, with `services` as the allowed entry) and run it in CI
+- **enforcement:** declare the layer order and capability independence in `import-linter` (a `layers` contract for controllers, services, repositories, models, and `independence` or `forbidden` contracts between capabilities, with `services` as the allowed entry) and run it in CI. Add a test that walks `src/capabilities/` and fails on a file whose name breaks the rule for its layer folder, with an exception list that may only shrink
 
 ```python
 # src/capabilities/orders/controllers/orders_controller.py

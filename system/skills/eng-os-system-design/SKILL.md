@@ -5,6 +5,7 @@ sources:
   - meso/system-design.md
   - micro/design-review-template.md
   - micro/templates/service-template.md
+  - micro/templates/architecture-template.md
 globs: ["**/*"]
 always_apply: false
 verified_platforms: [claude-code]
@@ -30,6 +31,26 @@ Apply these rules when designing a distributed system or service boundary, or wh
 - **Code**: implementation-level structure, only when needed.
 
 Rule: every production design must be explainable at least to Context and Container level.
+
+### Persisting the Model
+
+The C4 model is a file in the repository. It lives in
+`docs/architecture/`: `context.md` (Level 1), `containers.md` (Level 2), and
+`components-<container>.md` (Level 3) only for a container whose internals affect correctness,
+scale, or reviewability. Level 4 is the source tree. Diagrams are text (Mermaid C4 by default,
+another text format if CLAUDE.md declares it) so a change shows up in review. Copy the blank
+views and their header from `../../micro/templates/architecture-template.md`.
+
+- **Views describe the system as it is.** A view is a current-state document with `Status`,
+  `Last Reviewed`, and `Owner`. It lists the ADRs that shaped it and the specs that changed it.
+- **ADRs hold the reasoning, views hold the shape.** Do not put C4 inside an ADR: an accepted ADR
+  is immutable and a view must stay current. The ADR links to the view it changes.
+- **Update on a boundary change, in the same PR.** A new, removed, split, or merged service, data
+  store, queue, or scheduled job, a new external dependency, or a moved trust boundary updates
+  `containers.md` or `context.md`. A change inside an existing component does not.
+- **A spec's `design.md` names the impact.** Its Architecture impact field says which view
+  changes; the PR makes the change.
+- **The trust-boundary column is the threat-model input** for `eng-os-security-practices`.
 
 ## Core Design Patterns
 
@@ -94,6 +115,7 @@ For a worked example applying this skill's C4/boundary reasoning to a concrete s
 
 - [ ] Boundaries are explicit
 - [ ] C4 modeling is clear at Context and Container level
+- [ ] The C4 views are committed in `docs/architecture/` as text diagrams with Status, Owner, and linked ADRs, and match the code as of this change
 - [ ] Contracts are defined
 - [ ] Major patterns are justified
 - [ ] Quality attribute trade-offs are explicit

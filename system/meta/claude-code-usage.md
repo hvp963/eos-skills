@@ -259,27 +259,68 @@ bootstrapped project), the work runs in two stages, each with its own skill.
 
 **Spec stage** (`skills/eng-os-spec-feature/SKILL.md`). For a feature that takes three or more tasks,
 adds or changes a contract or an entity, has user-visible behavior with edge cases, or has
-ambiguous scope, three files are written under `.specs/<feature-slug>/` in this order, each stopping at an explicit approval gate
-before the next is started:
+ambiguous scope, three ledger files are written under `.specs/<feature-slug>/` in this order. Each is
+a table with one row per entry, and every row has an ID, an author, a created time, a source, and a
+reference (`Amends <ID>` for a row that replaces an earlier one):
 
-1. `requirements.md`: user stories, each with numbered acceptance criteria in EARS notation
-   (a trigger, a state, or an unwanted condition, then a response), plus an out-of-scope list
-   and no unresolved open questions.
-2. `design.md`: the components, data model, interfaces, error handling, test strategy, and
-   checkpoint-table skills the feature touches, with every requirement mapped to the part of the
-   design that satisfies it.
-3. `tasks.md`: vertical-slice tasks, each naming its dependencies, checkpoints, observable
-   Definition of Done, and the requirements it satisfies. A traceability check runs before this
-   gate: every requirement has a task, and every task has a requirement.
+1. `requirements.md`: user stories, each with a table of numbered requirements in EARS notation
+   (a trigger, a state, or an unwanted condition, then a response) and a table of scenarios, plus an
+   out-of-scope list and no unresolved open questions. A scenario is one concrete example of
+   behavior, written Given, when, then, with the values filled in, and it names the requirements it
+   validates. Every requirement has scenarios, and a number in a requirement has a scenario on it and
+   one beside it. The scenarios are the basis for validating the feature, and they are approved with
+   the requirements.
+2. `design.md`: a table of components and interfaces, each naming the requirements it covers, plus
+   the data model, error handling, a test strategy that maps each scenario to a test layer from
+   `eng-os-testing-strategy`, and the checkpoint-table skills the feature touches.
+3. `tasks.md`: a table of vertical-slice tasks, each naming its dependencies, checkpoints, observable
+   Definition of Done, the requirements it builds, the design elements it builds, and the scenarios
+   its tests prove. The tests are part of the task, and each test is named for its scenario. Every
+   requirement, design element, and scenario has a task, and every task has a requirement and a
+   design element.
+
+Alongside the ledgers, `events.jsonl` records who did what and when. The markdown carries no
+status. At the end of each phase the agent registers the rows, walks the check list, presents a
+summary and what it assumed, records approval according to the project's config, and continues
+without waiting: approval is recorded and never blocks work.
 
 **Execution stage** (`skills/eng-os-execute-feature/SKILL.md`). The task list, adopted from
 `tasks.md` or decomposed inline when no spec exists, is run one task at a time: implement,
 verify against the task's Definition of Done and the requirements it lists, commit, then start
-the next. When the work shows a spec file is wrong, the spec file is amended and re-approved
-before work continues, so the spec never disagrees with the code that ships. A feature is
-verified against every acceptance criterion in `requirements.md` before it is called done.
+the next. Each task is recorded as started and done, and its tests for the listed scenarios must
+pass before it is. When the work shows a spec row is wrong, the
+row is edited if it is not frozen, or an amending row is added if it is, so the spec never
+disagrees with the code that ships. A feature is verified by running the tests for every active scenario together, and then recording
+each requirement whose scenarios all passed.
 
 A change that is genuinely one task skips the spec stage and the decomposition both.
+
+**The spec stays alive after ship.** The ledgers are the record of what a feature does, so a later
+change that alters that behavior, a bug fix included, starts by reading them. A row is edited freely
+until a task that cites it is done. After that the row is frozen, and a change is a new row that
+amends it, with a new design row and a new task that carry forward everything they replace. An edit
+to an approved row needs a new approval, and a wording-only fix on a frozen row is an `editorial`
+event. An approved row is never deleted, only withdrawn. A bug where the code disagrees with an
+existing requirement needs no change to the spec, only a test that cites the requirement. A change
+that alters no behavior leaves the spec alone.
+
+**Status is live tracking, kept apart from the content.** Each entry has one status word:
+`proposed`, `approved`, `edited`, `started`, `done`, `verified`, or `withdrawn`. It is the name of
+the event that set it, and it lives in `events.jsonl`, never in the markdown. An entry's status is
+its latest event. Whether a row is frozen or superseded, and the progress of the feature, are
+worked out when needed and never stored. Every timestamp is UTC, written
+`yyyy-mm-dd hh24:mi:ss +00:00` and taken from the shell. Authors and approvers are unique names
+registered in `.specs/config.json` as human or agent, and each file's approval mode is `manual` (the
+default) or `auto`, which a human sets. The formats and the check list are in
+`skills/eng-os-spec-feature/references/spec-format.md`. The process is skills only: the agent reads
+and writes plain files, no code runs, and nothing depends on version control.
+
+**Documents close the loop.** After a feature is verified, `eng-os-execute-feature` Phase 7 walks
+the living documents (README, `docs/architecture/` C4 views, contracts, runbook, spec, changelog)
+and updates each one that the change affected, or records why none was needed. The C4 views are
+text diagrams in `docs/architecture/` (template `micro/templates/architecture-template.md`) and
+change in the same PR as any new, removed, or split service, data store, queue, external
+dependency, or trust boundary.
 
 ---
 
@@ -292,13 +333,16 @@ Checkpoints define when standards must be verified during implementation. They a
 | Before Step 1 | Bootstrap starting | Step 0 bail-out check completed: project classified as real/ongoing or trivial-script |
 | Before first file | Bootstrap complete | All CLAUDE.md sections populated (or explicitly marked N/A with a reason, if Step 0 classified the project as trivial) |
 | Before any design review, capacity decision, or load test | Scale-relevant decision | Checked against the Scale Targets section, which must be populated |
-| Before implementing a feature | Scope approved | `.specs/<feature>/` approved through all three gates, or the feature judged below the spec threshold (`eng-os-spec-feature` Phase 0) |
+| Before implementing a feature | Scope approved | `.specs/<feature>/` ledgers written and recorded, or the feature judged below the spec threshold (`eng-os-spec-feature` Phase 0) |
+| Before changing behavior of a shipped feature | A change or bug fix touches a feature with a `.specs/` entry | The entry's requirements were read; a row that is not frozen was edited, or an amending row was added for a frozen one, before code changed (`eng-os-spec-feature` Changing a Shipped Feature) |
+| Before merging a boundary change | New, removed, or split service, data store, queue, external dependency, or trust boundary | `docs/architecture/` views updated in the same PR |
 | Before each module | New source file created | Folder placement matches project-structure.md |
 | Before each public function | Function complete | Type annotations, JSDoc docstring, error handling |
 | Before each test file | Test file created | Happy-path and failure-path tests present; deps mocked |
 | Before each .ids file | IDS file created | AI-IDS Author Review Checklist passes |
 | Before each doc file | Doc file created | Status, Owner, lifecycle declared |
 | Before marking a task done | Task complete | Full DoD checklist for the applicable standard |
+| Before closing a feature | Feature verified | Living documents synced or marked unchanged with a reason (`eng-os-execute-feature` Phase 7) |
 | Before the session ends | Work complete | ADR for every significant decision made this session |
 
 **Checkpoint failures are not warnings.** They are blockers. An agent that skips a checkpoint has drifted from this OS.

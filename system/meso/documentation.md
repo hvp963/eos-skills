@@ -66,6 +66,9 @@ Each engineering discipline produces different documentation artifacts. The tabl
 | Prompt Registry | AI | Catalogs versioned prompts with intent, inputs, outputs, and evaluation results | `docs/prompts/` or AI system registry |
 | Evaluation Log | AI | Records results of AI system evaluation runs against defined quality metrics | `docs/eval/` or experiment tracker |
 | Onboarding Guide | All | Helps a new engineer become productive — system overview, local setup, key concepts | `docs/onboarding/` or team wiki |
+| Architecture Views (C4) | All | Shows the system's context, containers, and where needed components, as text diagrams that match the code | `docs/architecture/` |
+| Feature Spec | Software | Records what one feature must do (EARS criteria), how it is built, and its tasks | `.specs/<feature>/` |
+| README | All | Says what the project is and how to install, configure, run, and test it | Project root |
 | Design Document | All | Explains the design of a system at a level above code — trade-offs, patterns, constraints | `docs/design/` or linked in PRs |
 | Release Notes | Product / Platform | Communicates system changes, behavioral updates, deprecations, and migration steps to external customers | Customer portal, docs site, or email |
 | API Changelog | Software | Versioned log of API changes: additions, modifications, deprecations, breaking changes | Docs site, `CHANGELOG.md`, or API reference |
@@ -317,6 +320,16 @@ Documentation is organized by its decision layer, not by the team that wrote it.
 
 A runbook does not belong in a design document. An ADR does not belong in a docstring. Misplaced documentation gets lost because engineers look in the wrong layer.
 
+### 4.1 Living Documents and Record Documents
+
+A **living** document describes the system now: README, C4 views, API reference, data and API contracts, runbooks, data dictionary, prompt registry. It is edited in place in the same PR as the behavior change, and a stale one is a defect. A **record** document describes a decision or a feature at a point in time: an ADR or release notes is never edited after acceptance or release, and a feature spec changes only through its ledger: rows not yet frozen are edited, and frozen ones are replaced by new rows that amend them.
+
+Each fact has one home, and other documents link to it instead of restating it. The README says what the project is and how to run it, and links to the architecture views. The architecture views show the parts and their connections. A spec's requirements say what a feature must do. An ADR says why a choice was made. A contract says what crosses a boundary. A runbook says how to operate and recover.
+
+A fact written in two places drifts in one of them.
+
+When a feature or behavior change finishes, each living document is checked against the shipped code: updated, or marked unchanged with a reason. Skipping the check is how documentation becomes a description of last year's system.
+
 ---
 
 ## 5. Ownership and Freshness
@@ -365,13 +378,14 @@ Systems at different stages require different documentation coverage.
 □ API or data contract documentation
 □ At least one ADR for the primary technology choice
 □ Basic runbook (health check + one recovery procedure)
+□ C4 Context and Container views in docs/architecture/
 
 // production-stable system
 □ All of the above plus:
 □ Full runbooks for all known failure modes
 □ Data dictionary for all output datasets
 □ Evaluation logs for AI systems
-□ Architecture design document
+□ Component-level C4 views for containers whose internals matter
 
 // platform or shared infrastructure
 □ All of the above plus:

@@ -357,7 +357,7 @@ A hierarchical model for expressing software architecture through four levels: C
 A design review shows system boundaries at Context level and service/data-store composition at Container level.
 
 ### Notes
-C4 improves design communication and reviewability.
+C4 improves design communication and reviewability. The views are committed as text diagrams in `docs/architecture/`, per `micro/templates/architecture-template.md`.
 
 ---
 
@@ -1198,24 +1198,24 @@ The decomposition rule in `eng-os-execute-feature`. A layer-by-layer split fails
 ---
 
 ## Feature Spec
-The three approved files under `.specs/<feature>/` (requirements, design, tasks) that define one feature before implementation starts.
+The three ledger files under `.specs/<feature>/` (requirements, design, tasks), with the event log beside them, that define one feature before implementation starts and stay true after it ships.
 
 ### Example
-`.specs/service-freshness-list/` holding `requirements.md`, `design.md`, and `tasks.md`, each marked `Approved` with a date.
+`.specs/service-freshness-list/` holding `requirements.md`, `design.md`, `tasks.md`, and `events.jsonl`.
 
 ### Notes
-Written by `eng-os-spec-feature` and run by `eng-os-execute-feature`. A change approved during execution is written back into the files.
+Written by `eng-os-spec-feature` and run by `eng-os-execute-feature`. The markdown carries content only. Status lives in the events, and a change after work is done is a new row that amends the old one.
 
 ---
 
 ## Acceptance Criterion
-One numbered, testable statement of behavior in a feature's requirements, written in EARS notation with a concrete value.
+One row in a feature's requirements ledger: a numbered, testable statement of behavior, written in EARS notation with a concrete value.
 
 ### Example
 R1.5: WHEN a Service's Runbook was last reviewed 90 or more whole days ago THE SYSTEM SHALL show the state "red".
 
 ### Notes
-One behavior per criterion. A criterion with no check that could fail it is not yet an acceptance criterion.
+One behavior per row. A row with no check that could fail it is not yet an acceptance criterion.
 
 ---
 
@@ -1234,20 +1234,108 @@ Used for acceptance criteria by `eng-os-spec-feature`. Templates are in that ski
 A hard stop after a planning artifact where work waits for an explicit approval before the next artifact starts.
 
 ### Example
-After `requirements.md` is presented, the design is not started until the user says "approved," and the file's `Status:` becomes `Approved <date>`.
+`eng-os-plan-app` Phase 8: the Product Brief is presented, and nothing is scaffolded until the user says "approved."
 
 ### Notes
-Silence, a question, or partial feedback is not approval. A change to an earlier file reopens the later ones.
+Silence, a question, or partial feedback is not approval. The spec process does not use gates: approval there is tracked per row and never blocks work (see Approval Tracking).
 
 ---
 
 ## Traceability Check
-A check that every acceptance criterion appears in at least one task and every task lists at least one criterion.
+The check list in `eng-os-spec-feature` that every requirement, design row, and task is linked in both directions and that nothing was built on a row that has since changed.
 
 ### Example
-A screen task that satisfied no criterion for text labels was caught here: the labeling criterion had no task until it was added.
+A screen task that satisfied no requirement for text labels was caught here: the labeling requirement had no task until it was added.
 
 ### Notes
-Run before the tasks gate in `eng-os-spec-feature`. A task that serves no criterion is scope creep.
+The agent walks the list after each phase and after any change, and reports each finding without stopping work. A task or design row that serves no requirement is scope creep; a requirement with no design row, test, or task is a gap. The list is in `eng-os-spec-feature/references/spec-format.md`.
+
+---
+
+## Ledger Entry
+One row of a spec table: an ID, an author, a created time, a source, a reference, and the columns of its table.
+
+### Example
+`R1.8 | WHEN a Service's Runbook was last reviewed 70 to 89 whole days ago THE SYSTEM SHALL show the state "yellow" | sam.lee | 2026-12-01 09:00:00 +00:00 | Change request: yellow window from 70 days | Amends R1.4`
+
+### Notes
+IDs are never reused. An approved entry is never deleted, only withdrawn. The markdown rows carry no status. The Reference column holds `Amends <ID>` for a row that replaces an earlier one, and the Source column holds where the row came from.
+
+---
+
+## Scenario
+One concrete example of a requirement's behavior, written Given, when, then, with the values filled in, in a table under the requirements it validates.
+
+### Example
+S8: Given a Runbook reviewed exactly 90 whole days ago, when the Service List loads, then the state is "red". It validates R1.5, and a test in the code is named `S8 exactly 90 days is red`.
+
+### Notes
+Scenarios are the basis for validating a feature. They have no events of their own and follow the requirements they list. A number in a requirement has a scenario on it and one beside it. The design maps each scenario to a test layer, and a task lists the scenarios its tests prove.
+
+---
+
+## Spec Event
+One line in a feature's `events.jsonl` recording who did what to an entry and when: `proposed`, `approved`, `edited`, `editorial`, `started`, `done`, `verified`, or `withdrawn`.
+
+### Example
+`{"ts":"2026-12-02 08:15:00 +00:00","entry":"T6","action":"started","by":"claude-sonnet-5-5"}`
+
+### Notes
+Append-only, and written by the agent with its ordinary file tools. An entry's status is its latest event, so there is no second file to keep in step.
+
+---
+
+## Frozen Entry
+A requirement or design row that a done task cites, a scenario whose requirement is frozen, or a task that is done. A frozen entry is never edited.
+
+### Example
+R1.4 is frozen once T2 is done. A change to the 75-day boundary is a new row, R1.8, with `Amends R1.4` in its Reference.
+
+### Notes
+Computed, never stored. A wording-only fix on a frozen entry is an `editorial` event. The row that replaces a frozen one carries forward everything still active in it.
+
+---
+
+## Spec Amendment
+A new row added to a shipped feature's ledger with `Amends` naming the frozen row it replaces, together with the design row and task that build it.
+
+### Example
+A bug report shows the Brief never said what happens at exactly 90 days. R1.10 amends R1.5, D7 amends D2, and T7 amends T2, and the fix follows.
+
+### Notes
+Rows that are not frozen are edited in place instead. A bug where the code disagrees with an existing requirement is not an amendment; it needs a test citing the requirement.
+
+---
+
+## Approval Tracking
+Recording, for each ledger entry, who approved it and in which mode, without stopping work.
+
+### Example
+An `approved` line for R1.8 with `"by":"dana.okafor"` and `"mode":"manual"` records a person's approval. Where a human has set a file to `auto`, the agent records its own approval with `"mode":"auto"`.
+
+### Notes
+An unapproved entry is allowed. The summary lists what awaits approval, what was built on an unapproved entry, and what no human has reviewed.
+
+---
+
+## Living Document
+A document that describes the system as it is now and is edited in place in the same PR as the behavior it describes, such as the README, the C4 views, a contract, or a runbook.
+
+### Example
+`docs/architecture/containers.md` gains the new queue in the PR that adds the queue.
+
+### Notes
+The contrast is a record document (an ADR, release notes, a spec), which captures a decision or feature at a point in time and is not rewritten. A stale living document is a defect.
+
+---
+
+## Architecture Views
+The committed C4 diagrams in `docs/architecture/`: `context.md`, `containers.md`, and `components-<container>.md` where internals matter.
+
+### Example
+`containers.md` shows an API service, a database, and a queue as Mermaid C4, with an inventory table listing each container's owner, contract, and trust boundary.
+
+### Notes
+Text diagrams, so a change shows in review. They hold the shape of the system; the reasoning lives in ADRs that link to them.
 
 ---

@@ -205,6 +205,11 @@ called by controllers.
 - put code in `shared/` only when two or more capabilities use it and it holds no business logic belonging to one capability
 - mirror the source tree in `tests/`, layer for layer, one test file per source file
 - make the layer visible in each file's name or package, in the form the language skill defines
+- name a file for its topic first and its layer second: a page is named for the route it serves, a route handler for the resource, a service, repository or model for the concept; the language skill gives the spelling
+- in a UI application the split is the same, and these three cases decide where UI code goes:
+  - a view renders what it is given and keeps only presentation state (open or closed, hover, a local toggle, a draft not yet submitted)
+  - reading or validating a route or query parameter, deciding what the address becomes, state that must survive leaving the view, and any call into a service are controller work: the page handler does them and hands the result and the callbacks to the view as props
+  - a hook is placed by what it does: a hook that does controller work lives in `controllers/`, a hook shared by two or more capabilities lives in `shared/views/`
 
 The layers and dependency direction are identical for every application type; only the controller's
 binding and the view's output change:
@@ -238,6 +243,8 @@ See `references/examples.md` for illustrative code for each standard and `refere
 - a service that constructs its own repository or imports a database client cannot be unit-tested without the database and couples every business rule to one store
 - one capability importing another's repository, model, controller, or view makes the two impossible to change independently; the coupling is invisible until a schema change breaks the other
 - a `shared/` folder that accumulates code used by one capability becomes a dumping ground that every capability depends on
+- a component that reads a URL parameter, validates it and writes it back, or holds state the page needs after navigation, is a controller written inside a view: it passes the import-direction check and still cannot be reused or tested without rendering
+- a file named for the capability in one place and for the route in another makes the layer and the topic impossible to find by name; the language skill's naming rule and its test are what prevent this
 
 ## Definition of Done
 
@@ -265,3 +272,5 @@ See `references/examples.md` for illustrative code for each standard and `refere
 - [ ] every service receives its repositories by injection from one composition root
 - [ ] no capability imports another capability's controllers, repositories, models, or views
 - [ ] `tests/` mirrors `src/` layer for layer
+- [ ] every file's name shows its layer and follows the language skill's naming rule, enforced by a test that fails on a new violation
+- [ ] no view reads or writes a route parameter, calls a service, or holds state the page needs after navigation

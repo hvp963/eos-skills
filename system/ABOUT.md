@@ -37,7 +37,7 @@ Every principle, design pattern, and implementation standard in the OS carries a
 
 ### An Agent-Native Adapter, Not a Second Standard
 
-`meta/macro/meso/micro` are written for a human (or any agent) reading prose end to end. `skills/` is a Claude Code Skills adapter over that same content, built for how AI coding agents consume context: a small always-loaded core, the rest loaded selectively at the moment it's needed, never all 36 files up front. It doesn't introduce a second set of standards; every skill's `sources:` field points back to the canonical document it was condensed from. See `skills/README.md` and `skills/MINDMAP.md`.
+`meta/macro/meso/micro` are written for a human (or any agent) reading prose end to end. `skills/` is a Claude Code Skills adapter over that same content, built for how AI coding agents consume context: a small always-loaded core, the rest loaded selectively at the moment it's needed, never all 37 files up front. It doesn't introduce a second set of standards; every skill's `sources:` field points back to the canonical document it was condensed from. See `skills/README.md` and `skills/MINDMAP.md`.
 
 ---
 

@@ -24,6 +24,7 @@ Apply these rules when writing or reviewing tests, at whichever layer the change
 - **Fast feedback first.** Unit tests run in milliseconds, integration in seconds. Slow tests get skipped, so keep the commit loop fast.
 - **Mock at the boundary, not inside.** Mock external dependencies at the crossing point; never mock internal helpers: that hides real failures.
 - **AI outputs are probabilistic; evaluate properties.** Assert structural/behavioral properties, not exact strings.
+- **Name the scenario a test proves.** When the project has a spec (`.specs/`), name a test for the scenario it proves (`S8 exactly 90 days is red`), or for the requirement when it checks something no scenario lists. The scenario ID is how a requirement is traced to the test that validates it.
 - **Run the smallest relevant scope first.** For a given change, run the tests that exercise the changed code before running the full suite; a targeted file or module run gives the same signal for that change at a fraction of the cost and latency. Run the full suite when the change is cross-cutting (shared utility, schema, contract) or before merge, and state briefly why broader coverage is needed rather than running it by default.
 
 ## Test Layers

@@ -43,7 +43,9 @@ Invoke the named skill when the trigger is hit, run its Definition of Done, then
 |---|---|
 | Project has no CLAUDE.md with `## Engineering Standards` | `eng-os-bootstrap` |
 | Feature scope approved at the spec threshold (3+ tasks, contract or entity change, edge cases, or ambiguity), no `.specs/<feature>/` yet | `eng-os-spec-feature` |
-| Spec approved (`tasks.md` exists), or the change is small enough to need no spec | `eng-os-execute-feature` |
+| Spec written (`tasks.md` exists), or the change is small enough to need no spec | `eng-os-execute-feature` |
+| A change, including a bug fix, that alters behavior in a feature that has a `.specs/<feature>/` entry | `eng-os-spec-feature` Changing a Shipped Feature: read the requirements first, edit rows that are not frozen or add amending rows, then code |
+| New, removed, or split service, data store, queue, external dependency, or trust boundary | `eng-os-system-design` Persisting the Model: update `docs/architecture/` in the same PR |
 | Any design review, capacity decision, load test, or cost budget | check `## Scale Targets` in CLAUDE.md; `eng-os-system-design` |
 | New source file | `eng-os-coding-standards-common` + `eng-os-coding-standards-python` or `eng-os-coding-standards-nodejs` |
 | Any naming decision (variable, file, class, constant, env var, term) | `eng-os-code-conventions` (Terminology Lock) |
@@ -68,6 +70,7 @@ Invoke the named skill when the trigger is hit, run its Definition of Done, then
 | Tuning the agent workflow's cost, latency, or context | `eng-os-model-optimization` |
 | Generic vs. project-specific split in any doc | `eng-os-doc-authoring-rules` Core Rule 11 |
 | Marking a task done | Meta Definition of Done below, plus `eng-os-execute-feature` Verify and Commit if a task list is active |
+| Finishing a feature or a behavior change | `eng-os-execute-feature` Phase 7: living documents (README, `docs/architecture/`, contracts, runbook) match the shipped code |
 | Session ends | `eng-os-documentation-standards`: an ADR for every decision meeting its threshold |
 
 **Checkpoint failures are blockers, not warnings.** Skipping a checkpoint is drift, regardless of output quality.

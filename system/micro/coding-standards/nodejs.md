@@ -421,12 +421,13 @@ Applies `common.md` Standard 13 to Node.js/TypeScript. The five layer folders pe
 the dependency direction, and the composition root are defined there and in
 `project-structure.md` Section 2; this section adds only the TypeScript specifics.
 
-- **file names:** `<capability>.<layer>.ts` in kebab-case, for example `orders.controller.ts`, `orders.service.ts`, `orders.repository.ts`, `orders.model.ts`, `orders.view.ts`; tests are `<capability>.<layer>.test.ts`. Identifier casing follows ADR-001
+- **file names:** kebab-case `<topic>.<layer>.ts`, where the topic is the concept the file is about, not necessarily the capability's name. `.controller.ts` is a route handler named for the resource (plural for the collection route `/api/orders`, singular for one item `/api/orders/[id]`; an uncountable noun keeps one form). `.page.tsx` (also `.layout.tsx`, `.loading.tsx`, `.error.tsx`, `.not-found.tsx`) is a page named for the last segment of the URL it serves (`checkout.page.tsx` serves `/checkout`). `.service.ts`, `.repository.ts` and `.model.ts` are named for the concept (`orders.service.ts`). In `views/` a component is PascalCase `.tsx`, an output shape is `<name>.view.ts`, other data or helpers are kebab-case `.ts`. A hook is `use<Name>.ts(x)`. Tests are `<same name>.test.ts` at the mirrored path. Identifier casing follows ADR-001
+- **page and view (React):** the page (`.page.tsx`) is the controller. It reads the route parameters, resolves them with a service function, owns the state that must survive navigation, and passes data and callbacks down as props. A component in `views/` receives props and keeps only presentation state. A hook that does controller work (fetching through a client service, subscribing, reading the URL) lives in `controllers/`; a hook shared by two or more capabilities lives in `shared/views/components/`
 - **controller:** binds the route and validates `body`, `query`, and `params` with a `zod` schema (Section 7), maps snake_case wire fields to camelCase once at that boundary, then calls one service
 - **service:** a factory function (`makeOrdersService(ordersRepository)`) or a class taking its repositories in the constructor. It imports no `Request`, `Response`, or HTTP status code, and throws typed errors from `src/shared/errors/`
 - **repository:** the only layer that imports the database client; parameterized statements only (`$1`, `$2`), never string interpolation of input
 - **error mapping:** one error-handling middleware translates domain errors (`NotFoundError`, `ConflictError`, `ValidationError`) to status codes; handlers do not
-- **enforcement:** declare the dependency direction in `dependency-cruiser` (`forbidden` rules: models import nothing, repositories do not import services or controllers, services do not import controllers, no path from one capability's non-service folders into another's) and run it in CI. `eslint-plugin-boundaries` is an equivalent
+- **enforcement:** declare the dependency direction in `dependency-cruiser` (`forbidden` rules: models import nothing, repositories do not import services or controllers, services do not import controllers, no path from one capability's non-service folders into another's) and run it in CI. `eslint-plugin-boundaries` is an equivalent. Add a test that walks `src/capabilities/` and fails on a file whose name breaks the rule for its layer folder, with an exception list that may only shrink
 
 ```typescript
 // src/capabilities/orders/controllers/orders.controller.ts
@@ -454,6 +455,7 @@ enforced.
 - committing `.env` files exposes secrets in version history even after deletion
 - missing `.catch()` on a Promise chain that throws causes silent failures
 - a handler that reaches the database client directly, or a service that imports the HTTP framework, defeats the layering that makes services testable without a server or a database
+- a component that reads a URL parameter, validates it and writes it back, or holds state the page needs after navigation, is a controller written inside a view: it passes the import-direction check and still cannot be reused or tested without rendering
 - instantiating a third-party SDK client per-file instead of centrally lets call sites drift out of sync: different retry config, different API version, a forgotten timeout override
 
 ---
@@ -469,7 +471,8 @@ Node.js/TypeScript code meets this standard when:
 - all logs use pino/winston JSON format and exclude secrets
 - `zod` or equivalent validates external data at boundaries
 - tests use jest/vitest with mocked external dependencies
-- every capability has `controllers/`, `services/`, `repositories/`, `models/`, and `views/` with `<capability>.<layer>.ts` names, and the dependency direction is enforced by `dependency-cruiser` (or equivalent) in CI
+- every capability has `controllers/`, `services/`, `repositories/`, `models/`, and `views/` with `<topic>.<layer>.ts` names, a test fails on a file whose name breaks the rule for its folder, and the dependency direction is enforced by `dependency-cruiser` (or equivalent) in CI
+- no file in `views/` reads or writes a route parameter, calls a service, or holds state the page needs after navigation
 - third-party SDK clients are instantiated once in a shared module and imported, not re-instantiated per route/file
 - all public functions, classes, interfaces, and modules have JSDoc
 - inline comments explain why, not what

@@ -9,7 +9,7 @@ New here? Read in this order:
 1. **`MINDMAP.md`**: how the 28 skills relate, which matter most, and their known scope limits.
 2. **`eng-os-core/SKILL.md`**: the always-on root skill. Everything else is reached through its checkpoint table.
 3. **`eng-os-plan-app/SKILL.md`**: for a new app or feature, this runs before any code exists.
-4. **`eng-os-spec-feature/SKILL.md`**: once scope is approved, this turns it into approved requirements, design, and a task list.
+4. **`eng-os-spec-feature/SKILL.md`**: once scope is approved, this turns it into requirements, scenarios, design, and task ledgers with an event log, and keeps them true after the feature ships.
 5. **`eng-os-execute-feature/SKILL.md`**: this runs the task list one verified task at a time.
 
 ---
@@ -37,7 +37,7 @@ Verify in a fresh session that the skills appear in the agent's skill list; `ver
 |---|---|---|
 | Starting a brand-new app or major feature | `eng-os-plan-app` | Turns an idea into a Product Brief (entities, screens, Scale Targets, phased scope, terminology) before anything is scaffolded; hands off to `eng-os-bootstrap` |
 | Retrofitting governance onto an existing app with no CLAUDE.md | `eng-os-bootstrap` | Has a bail-out check for trivial scripts; records Scale Targets; runs the Architecture Practices Gate |
-| Scope approved for a feature of three or more tasks, a new or changed contract or entity, edge-case behavior, or ambiguous scope | `eng-os-spec-feature` | Writes `.specs/<feature>/` requirements (EARS criteria), design, and tasks, with an explicit approval gate after each |
+| Scope approved for a feature of three or more tasks, a new or changed contract or entity, edge-case behavior, or ambiguous scope | `eng-os-spec-feature` | Writes `.specs/<feature>/` requirements (EARS), design, and tasks as ledgers with one row per entry, records who did what in an append-only event log, and tracks approval without blocking work; also changes the spec before a later change alters a shipped feature's behavior |
 | Ready to build: a spec is approved, or the change is small enough to need none | `eng-os-execute-feature` | Adopts the spec's task list (or decomposes the scope), runs one task at a time with a verify gate between tasks, and parallel lanes for independent ones |
 | Already mid-project, writing code | `eng-os-core` (already active) | Its checkpoint table routes to the right domain skill at each point |
 | Setting SLOs, timeouts, retries, queue bounds, or a degraded path | `eng-os-reliability-engineering` | Owns how the running system stays within its targets under load and partial failure |
@@ -56,7 +56,7 @@ skills/
   eng-os-core/            always-on: principles + checkpoint router
   eng-os-bootstrap/       one-time: CLAUDE.md scaffolding, Scale Targets, Active Skills (template in references/)
   eng-os-plan-app/               one-time, pre-code: Product Brief for greenfield apps
-  eng-os-spec-feature/           per-feature, pre-code: requirements, design, tasks, each behind an approval gate
+  eng-os-spec-feature/           per-feature: requirements, design, tasks as ledgers, and an event log
   eng-os-execute-feature/        per-feature, pre-code to done: task loop with verify gate and one commit per task
   eng-os-audit/           periodic, read-only: compliance sweep + report
   eng-os-model-optimization/     cross-cutting: token/latency/quality tuning (Claude, OpenAI, custom-OSS)

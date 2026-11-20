@@ -136,6 +136,7 @@ src/
 database/              schema.sql, migrations/, seed.sql
 ids/                   AI-IDS specification files (.ids), plain text, at project root (AI projects only)
 docs/
+  architecture/        C4 views (context, containers, components): living, text diagrams
   decisions/           Architecture Decision Records
   contracts/           Data contracts and output schemas
   prompts/             Prompt registry entries for every .ids file
@@ -160,8 +161,29 @@ src/
     constants/         Sectioned by app area: labels, messages, config, business constants
   styles/              Global CSS/tokens; no hardcoded styles in components
 docs/
+  architecture/        C4 views (context, containers, components): living, text diagrams
   decisions/           Architecture Decision Records
 tests/
+
+---
+
+## Living Documents
+
+These files are the source of truth for what the system does and how it is shaped. Read the
+relevant one before changing code, and update it in the same PR as the change.
+
+- `.specs/<feature>/`: the requirements, design, and tasks ledgers of each feature, with
+  and `events.jsonl`. `.specs/config.json` holds the project's identities (human or
+  agent) and each file's approval mode, `manual` by default. A change to a feature's behavior, a
+  bug fix included, starts in the ledgers (`eng-os-spec-feature` Changing a Shipped Feature).
+- `docs/architecture/`: C4 context and container views. Update on any new, removed, or split
+  service, data store, queue, external dependency, or trust boundary.
+- `docs/decisions/`: ADRs. Never edit an accepted one; supersede it.
+- README, `docs/contracts/`, `docs/runbooks/`: current-state, checked at the end of every feature
+  (`eng-os-execute-feature` Phase 7).
+
+[Delete a line here only when the project has no such artifact yet and bootstrap created none;
+a project that omits `.specs/` states why.]
 
 ---
 

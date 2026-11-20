@@ -52,11 +52,19 @@ src/capabilities/shipments/
 CLI (`reports` capability): `controllers/` holds the command handler, `views/` holds terminal
 output formatting, the other three folders are unchanged.
 
-UI application (`rotations` capability): `controllers/` holds the page or route handler, `views/`
-holds the page and its components. The four-region app shell and components used on two or more
-pages live in `shared/views/shell/` and `shared/views/components/`. `repositories/` holds the API
-client or local-store access for the capability, injected into its services like any other
-repository.
+UI application (`checkout` capability): `controllers/` holds the page handler and any controller hook, `views/` holds the components. The four-region app shell and components used on two or more pages live in `shared/views/shell/` and `shared/views/components/`. `repositories/` holds the API client or local-store access for the capability, injected into its services like any other repository.
+
+```
+src/capabilities/checkout/
+  controllers/checkout.page.tsx        serves /checkout: reads ?step= and ?coupon=, resolves them with
+                                       checkoutSelection(), passes step, onStepChange, onApplyCoupon down
+  controllers/useCartPolling.ts        a hook that fetches through a client service: controller work
+  services/checkout.service.ts         checkoutSelection(): unknown step falls back to the first
+  services/checkout-client.service.ts  browser-side fetch wrappers, injected like a repository
+  views/CheckoutSteps.tsx              receives step and callbacks; holds only which panel is hovered
+  views/OrderSummary.tsx               PascalCase component; renders props
+  views/checkout.view.ts               output shape, if the page also serves an API
+```
 
 ## Wiring: the composition root
 
@@ -114,3 +122,5 @@ A service test passes a fake `OrdersRepository`; no database is involved.
 - No import reaches into another capability's `controllers/`, `repositories/`, `models/`, or `views/`
 - `app` is the only module that constructs both a repository and the service that receives it
 - `tests/` has a file at the mirrored path for every file in `src/`
+- No file in `views/` reads or writes a route or query parameter, calls a service, or holds state the page needs after navigation
+- Every file name matches the naming rule for its layer folder (the test named in the language skill passes with an empty or shrinking exception list)

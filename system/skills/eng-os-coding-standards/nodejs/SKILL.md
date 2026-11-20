@@ -92,12 +92,19 @@ See `references/examples.md` for full code samples of each rule above and the MV
 Applies `eng-os-coding-standards-common` Standard 13 to TypeScript. Layers, folders, and dependency
 direction are defined there; this section adds only the TypeScript specifics.
 
-- file names: `<capability>.<layer>.ts` in kebab-case (`orders.controller.ts`, `orders.service.ts`, `orders.repository.ts`, `orders.model.ts`, `orders.view.ts`); tests are `<capability>.<layer>.test.ts`; identifier casing follows ADR-001
+- file names are kebab-case `<topic>.<layer>.ts`, where the topic is the concept the file is about, not necessarily the capability's name:
+  - `.controller.ts`: a route handler, topic is the resource; plural for the collection route (`/api/orders`), singular for one item (`/api/orders/[id]`); an uncountable noun keeps one form
+  - `.page.tsx` (and `.layout.tsx`, `.loading.tsx`, `.error.tsx`, `.not-found.tsx`): a page, topic is the last segment of the URL it serves (`checkout.page.tsx` serves `/checkout`, whichever capability owns it)
+  - `.service.ts`, `.repository.ts`, `.model.ts`: topic is the concept (`orders.service.ts`)
+  - in `views/`: a component is PascalCase `.tsx` (`OrderTable.tsx`); an output shape is `<name>.view.ts`; any other data or helper is kebab-case `.ts`
+  - a hook is `use<Name>.ts` or `.tsx`; see the hook rule below for its folder
+  - tests are `<same name>.test.ts` at the mirrored path; identifier casing follows ADR-001
 - controller: binds the route and validates `body`, `query`, and `params` with a `zod` schema, mapping snake_case wire fields to camelCase once at that boundary, then calls one service
 - service: a factory function (`makeOrdersService(ordersRepository)`) or a class taking repositories in the constructor; imports no `Request`, `Response`, or status code; throws typed errors from `src/shared/errors/`
 - repository: the only layer that imports the database client; parameterized statements only (`$1`, `$2`)
+- page and view (React): the page (`.page.tsx`) is the controller. It reads the route parameters, resolves them with a service function, owns the state that must survive navigation, and passes data and callbacks down as props. A component in `views/` receives props and keeps only presentation state. A hook that does controller work (fetching through a client service, subscribing, reading the URL) lives in `controllers/`; a hook shared by two or more capabilities lives in `shared/views/components/`
 - error mapping: one error-handling middleware translates domain errors to status codes
-- enforcement: declare the dependency direction in `dependency-cruiser` (`forbidden` rules) or `eslint-plugin-boundaries` and run it in CI
+- enforcement: declare the dependency direction in `dependency-cruiser` (`forbidden` rules) or `eslint-plugin-boundaries` and run it in CI; add a test that walks `src/capabilities/` and fails on a file whose name breaks the rule for its layer folder, with an exception list that may only shrink
 
 ## Failure Modes
 
@@ -119,7 +126,8 @@ direction are defined there; this section adds only the TypeScript specifics.
 - [ ] all logs use pino/winston JSON format and exclude secrets
 - [ ] `zod` or equivalent validates external data at boundaries
 - [ ] tests use jest/vitest with mocked external dependencies
-- [ ] every capability has `controllers/`, `services/`, `repositories/`, `models/`, and `views/` with `<capability>.<layer>.ts` names, and the dependency direction is enforced by `dependency-cruiser` (or equivalent) in CI
+- [ ] every capability has `controllers/`, `services/`, `repositories/`, `models/`, and `views/` with `<topic>.<layer>.ts` names, a test fails on a file whose name breaks the rule for its folder, and the dependency direction is enforced by `dependency-cruiser` (or equivalent) in CI
+- [ ] no file in `views/` reads or writes a route parameter, calls a service, or holds state the page needs after navigation
 - [ ] third-party SDK clients are instantiated once in a shared module and imported, not re-instantiated per route/file
 - [ ] all public functions, classes, interfaces, and modules have JSDoc
 - [ ] inline comments explain why, not what

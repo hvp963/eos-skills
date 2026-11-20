@@ -23,7 +23,7 @@ flowchart TD
     end
 
     subgraph PerFeature["Per-feature, before implementation"]
-        SPEC[eng-os-spec-feature<br/>approved scope to requirements, design, tasks]
+        SPEC[eng-os-spec-feature<br/>approved scope to ledgers: requirements, design, tasks, with an event log]
         EXEC[eng-os-execute-feature<br/>task list to verified commits]
         SPEC --> EXEC
     end
@@ -112,7 +112,7 @@ Ranked by how much rewrite-avoidance and drift-prevention it buys, based on the 
 
 | Skill | What it stops | Evidence |
 |---|---|---|
-| `eng-os-spec-feature` | Behavior left undefined until it surfaces as rework; a task list with nothing agreed to check it against | Structural gap found in the same framework comparison as E-06; no downstream incident recorded yet (E-29) |
+| `eng-os-spec-feature` | Behavior left undefined until it surfaces as rework; a task list with nothing agreed to check it against | Structural gap found in the same framework comparison as E-06; ledger and event log added on the owner's requirements (E-29, E-32); no downstream incident recorded yet |
 | `eng-os-design-system` | Hand-retyped tokens drifting between sibling apps; header/footer duplicated per page; layouts untested off desktop; screens no keyboard user can operate | 4+ apps retyped identical tokens by hand (E-07); accessibility retrofits cost more than building it in (E-19) |
 | `eng-os-coding-standards-common` Standard 13 (MVCS) | Business logic inline in route handlers; ad hoc folder layout; services reaching the database directly; cross-capability imports | Repeated drift from MVC in new projects despite Separation of Concerns (E-08); layout and dependency rules added (E-30) |
 | `eng-os-security-practices` + `eng-os-privacy-and-governance` | Authenticated-but-not-authorized endpoints; personal data in logs; deletion that leaves copies | Cross-tenant leaks are the top high-severity bug class in multi-tenant APIs (E-20) |
@@ -142,7 +142,7 @@ Rules that hold with caveats, stated in each skill's own text:
 - **Atomic multi-entity saves** (`eng-os-design-system` 3.8, `eng-os-database-design`): only within one database's transaction boundary; across services, saga or outbox.
 - **Design System Inheritance by path reference** (`eng-os-design-system`): monorepo or single-team; cross-team production needs a versioned published token package. The same advice applies to this OS: downstream projects pin a release tag.
 - **AI-IDS Scoring Run always inline** (`eng-os-ai-ids-authoring/references/observability-ui.md`): sample or drill down at high QPS.
-- **Spec Feature** (`eng-os-spec-feature`): applies only above its Phase 0 threshold (three or more tasks, a new contract or entity, edge-case behavior, or ambiguous scope); its evidence is comparative, not incident-based, so Tier 2 until a downstream project records a failure it would have caught.
+- **Spec Feature** (`eng-os-spec-feature`): applies only above its Phase 0 threshold (three or more tasks, a new contract or entity, edge-case behavior, or ambiguous scope); its evidence is comparative and from the owner's requirements, not incident-based, so Tier 2 until a downstream project records a failure it would have caught.
 - **Freshness badges** (`eng-os-data-strategy`): only for fields with a declared SLA.
 - **"Every metric is a doorway"** (`eng-os-design-system` 3.8): a Consider note, not a gate.
 - **Canonical/Shadow Divergence Tracking** (`eng-os-data-strategy`): not a substitute for MDM.

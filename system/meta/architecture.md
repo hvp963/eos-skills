@@ -416,6 +416,7 @@ micro/
     service-template.md
     etl-template.md
     release-notes-template.md
+    architecture-template.md
     base-styles.css
     ai-ids-template.md
 

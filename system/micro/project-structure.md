@@ -52,7 +52,9 @@ project-root/
 ├── input/            ← raw input files consumed by the project
 ├── output/           ← files produced by the project
 ├── logs/             ← runtime log files
+├── .specs/           ← config.json, and per feature: requirements.md, design.md, tasks.md, events.jsonl (Section 6)
 ├── docs/
+│   ├── architecture/ ← C4 views as text diagrams: context.md, containers.md, components-<container>.md
 │   ├── decisions/    ← Architecture Decision Records
 │   ├── contracts/    ← data contracts and output schemas
 │   ├── prompts/      ← prompt registry entries for every .ids file
@@ -158,15 +160,22 @@ plural or singular consistently across a project, as declared in the Terminology
 
 | Layer | Node.js / TypeScript | Python |
 |---|---|---|
-| Controller | `<capability>.controller.ts` | `<capability>_controller.py` |
-| Service | `<capability>.service.ts` | `<capability>_service.py` |
-| Repository | `<capability>.repository.ts` | `<capability>_repository.py` |
-| Model | `<capability>.model.ts` | `<capability>_model.py` |
-| View | `<capability>.view.ts` | `<capability>_view.py` |
-| Test | `<capability>.<layer>.test.ts` | `test_<capability>_<layer>.py` |
+| Controller | `<topic>.controller.ts` | `<topic>_controller.py` |
+| Page (UI) | `<topic>.page.tsx` | `<topic>_page.py` |
+| Service | `<topic>.service.ts` | `<topic>_service.py` |
+| Repository | `<topic>.repository.ts` | `<topic>_repository.py` |
+| Model | `<topic>.model.ts` | `<topic>_model.py` |
+| View, output shape | `<topic>.view.ts` | `<topic>_view.py` |
+| View, UI component | `<Name>.tsx` (PascalCase) | `<name>_component.py` |
+| Test | `<same name>.test.ts` | `test_<same name>.py` |
 
-A capability with several files in one layer names each by the thing it holds
-(`order-line.model.ts`, `order_line_model.py`); the layer suffix stays.
+The topic is the concept the file is about, not necessarily the capability's name: a page is named
+for the last segment of the URL it serves, a route handler for the resource (plural for the
+collection route, singular for one item), a service, repository or model for the concept
+(`order-line.model.ts`, `order_line_model.py`). The layer suffix always stays. Other data or helpers
+in `views/` are kebab-case `.ts` (snake_case `.py`) with no layer suffix. A hook is `use<Name>.ts(x)`:
+one that does controller work lives in `controllers/`, one shared by two or more capabilities in
+`shared/views/`. Case and suffix are checked by a test that walks the capabilities.
 
 #### Failure Mode
 
@@ -280,6 +289,7 @@ Documentation is organized by artifact type, not by team or date. Every subfolde
 
 ```
 docs/
+├── architecture/   ← C4 views: context.md, containers.md, components-<container>.md (living)
 ├── decisions/      ← Architecture Decision Records (ADR-NNN-title.md)
 ├── contracts/      ← Data contracts and output schema definitions
 ├── prompts/        ← Prompt registry entries (one per .ids file)
@@ -288,6 +298,8 @@ docs/
 
 **Rules:**
 - Every significant technical decision requires an ADR in `docs/decisions/`
+- Every production system has Context and Container views in `docs/architecture/`, written as text diagrams per `micro/templates/architecture-template.md` and updated in the same PR as any boundary change
+- Feature specs live in `.specs/<feature-slug>/` at the project root, next to `docs/`: three ledger tables and `events.jsonl`, with one `.specs/config.json` for the project. A change to shipped behavior is a change to the ledgers, by editing rows that are not frozen or adding rows that amend frozen ones (`eng-os-spec-feature`)
 - Every data output produced by the system requires a contract in `docs/contracts/`
 - Every `.ids` file requires a prompt registry entry in `docs/prompts/`
 - All documentation files must carry `Status:` and `Owner:` frontmatter

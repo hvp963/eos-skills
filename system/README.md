@@ -90,7 +90,7 @@ It treats AI instruction design as an engineering discipline, not a prompting ar
 
 ## AI Agent Usage
 
-**Claude Code:** start at `skills/README.md`, not this section: the Skills layer (`skills/eng-os-core`, `skills/eng-os-bootstrap`, `skills/eng-os-plan-app`) is the primary way Claude Code should consume this OS now, and it supersedes manually reading all 36 prose files.
+**Claude Code:** start at `skills/README.md`, not this section: the Skills layer (`skills/eng-os-core`, `skills/eng-os-bootstrap`, `skills/eng-os-plan-app`) is the primary way Claude Code should consume this OS now, and it supersedes manually reading all 37 prose files.
 
 **Any other AI agent, or reading this as prose:** start at `meta/claude-code-usage.md`. It provides:
 - A bootstrap protocol that must complete before any code is written

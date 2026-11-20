@@ -57,6 +57,16 @@ Define implementation-level structure only when needed.
 Every production design should be explainable at least to Context and Container level.
 Component level should be added when service internals materially affect correctness, scale, or reviewability.
 
+### Persisting the Model
+The C4 model is committed to the repository as text diagrams, one file per level (`context`, `containers`, and `components-<container>` where the rule above applies), in `docs/architecture/`. Template: `micro/templates/architecture-template.md`.
+
+- The views describe the system as it is now. They carry a status, an owner, a review date, the ADRs that shaped them, and the specs that changed them.
+- An ADR holds the reasoning and a view holds the shape. C4 does not live inside an ADR, because an accepted ADR is immutable and a view must stay current. The ADR links to the view it changes.
+- A change to a boundary (a service, data store, queue, or scheduled job added, removed, split, or merged; a new external dependency; a moved trust boundary) updates the matching view in the same PR. A change inside an existing component does not.
+- A feature design names which view it changes. The trust-boundary column of the container view is the input to the threat model.
+
+Failure mode: the diagram is drawn once for the design review, never updated, and a year later describes a system that no longer exists, so a new engineer learns the wrong shape first.
+
 ---
 
 ## Core Design Patterns
@@ -269,6 +279,7 @@ bulkheads, shedding, graceful degradation).
 A system design is complete when:
 - boundaries are explicit
 - C4 modeling is clear at Context and Container level
+- the C4 views are committed in `docs/architecture/` as text diagrams, with an owner and linked ADRs, and match the code as of this change
 - contracts are defined
 - major patterns are justified
 - quality attribute trade-offs are explicit

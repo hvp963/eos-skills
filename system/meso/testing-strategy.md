@@ -50,6 +50,8 @@ These rules govern how tests are designed within the layer model above.
 
 **AI outputs are probabilistic; evaluate properties.** AI test assertions check structural properties and behavioral invariants, not exact strings. Exact-string assertions track model verbatim, not model quality.
 
+**Name the scenario a test proves.** When the project has a spec (`.specs/`), a test is named for the scenario it proves (`S8 exactly 90 days is red`), or for the requirement when it checks something no scenario lists. The scenario ID is how a requirement is traced to the test that validates it.
+
 ---
 
 ## Test Layers

@@ -1,8 +1,8 @@
 ---
 name: eng-os-documentation-standards
 description: "Use when writing ADRs, API/data contracts, release notes, or runbooks; defines what documentation is required per discipline and its Definition of Done."
-sources: [meso/documentation.md, micro/templates/adr-template.md, micro/templates/release-notes-template.md]
-globs: ["**/docs/**", "**/README*", "**/runbooks/**", "**/decisions/**"]
+sources: [meso/documentation.md, micro/templates/adr-template.md, micro/templates/release-notes-template.md, micro/templates/architecture-template.md]
+globs: ["**/docs/**", "**/README*", "**/runbooks/**", "**/decisions/**", "**/.specs/**"]
 always_apply: false
 verified_platforms: [claude-code]
 ---
@@ -35,7 +35,10 @@ archive it.
 | Prompt Registry | AI | `docs/prompts/` or AI system registry |
 | Evaluation Log | AI | `docs/eval/` or experiment tracker |
 | Onboarding Guide | All | `docs/onboarding/` or team wiki |
+| Architecture Views (C4) | All | `docs/architecture/` |
+| Feature Spec | Software | `.specs/<feature>/` |
 | Design Document | All | `docs/design/` or linked in PRs |
+| README | All | Project root |
 | Release Notes | Product / Platform | Customer portal, docs site, email |
 | API Changelog | Software | Docs site, `CHANGELOG.md`, API reference |
 | Migration Guide | Software / Platform | Docs site, linked from release notes |
@@ -44,6 +47,35 @@ Organize by decision layer, not by team: **Decision** (ADRs, trade-off records) 
 (diagrams, design docs) → **Contract** (API specs, data contracts, SLAs) → **Operational**
 (runbooks, playbooks) → **Code** (docstrings, inline comments, module READMEs). A runbook does not
 belong in a design document; an ADR does not belong in a docstring.
+
+## Living Documents and Record Documents
+
+Every document is one of two kinds, and the kind decides how it is maintained.
+
+| Kind | Documents | Rule |
+|---|---|---|
+| **Living** (describes the system now) | README, `docs/architecture/` C4 views, API reference, `docs/contracts/`, runbooks, data dictionary, prompt registry | Edited in place in the same PR as the behavior change. A stale one is a defect |
+| **Record** (describes a decision or a feature at a point in time) | ADRs, release notes, `.specs/<feature>/` | ADRs and release notes are never edited after acceptance or release. A spec is changed only through its ledger (`eng-os-spec-feature` Changing a Shipped Feature): rows not yet frozen are edited, and frozen ones are replaced by new rows that amend them |
+
+Each living document has one job, so a fact has one home and the others link to it:
+
+| Document | Answers |
+|---|---|
+| README | What is this, how do I run, test, and configure it? Under a page, with links onward |
+| `docs/architecture/` | What are the parts and how do they connect (`eng-os-system-design` Persisting the Model; template `../../micro/templates/architecture-template.md`) |
+| `.specs/<feature>/requirements.md` | What must this feature do, in testable terms |
+| ADR | Why was this chosen over the alternatives |
+| Contract (API or data) | What exactly crosses this boundary |
+| Runbook | How do I operate it and recover it |
+
+A fact written in two places drifts in one of them. Link instead of restating: a README links to
+the architecture views and does not redraw them; a design links to the contract and does not
+copy it.
+
+**Doc sync check.** When a feature or behavior change finishes, `eng-os-execute-feature` Phase 7
+walks the living documents and updates or marks each "no change" with a reason. The same check
+applies to a change made without a task list: the PR description states which living documents
+changed.
 
 ## When an ADR Is Required
 
@@ -151,6 +183,9 @@ Done on its prose.
 
 - [ ] Every production-facing interface has current contract documentation
 - [ ] At least one ADR exists capturing the primary technology and architecture choices
+- [ ] `docs/architecture/` holds the Context and Container views as text diagrams, and they match the code
+- [ ] The README states what the project is and how to install, configure, run, and test it, and each step works as written
+- [ ] The doc sync check ran for this change: each living document is updated or marked "no change" with a reason
 - [ ] A runbook exists with at minimum: health check, one failure recovery procedure, escalation path
 - [ ] All documentation declares owner and lifecycle state
 - [ ] Documentation was reviewed in the same PR as the code change that affected behavior

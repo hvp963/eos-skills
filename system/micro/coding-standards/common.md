@@ -598,6 +598,11 @@ handler's control flow, so they share a file.
 - must put code in `shared/` only when two or more capabilities use it and it holds no business logic belonging to one capability
 - must mirror the source tree in `tests/`, layer for layer, with one test file per source file
 - must make the layer visible in each file's name or package, in the form the language skill defines
+- must name a file for its topic first and its layer second: a page is named for the route it serves, a route handler for the resource, a service, repository or model for the concept; the language skill gives the spelling
+- in a UI application the split is the same, and these three cases decide where UI code goes:
+  - a view renders what it is given and keeps only presentation state (open or closed, hover, a local toggle, a draft not yet submitted)
+  - reading or validating a route or query parameter, deciding what the address becomes, state that must survive leaving the view, and any call into a service are controller work: the page handler does them and hands the result and the callbacks to the view as props
+  - a hook is placed by what it does: a hook that does controller work lives in `controllers/`, a hook shared by two or more capabilities lives in `shared/views/`
 
 **Mapping to transports.** The layers and their dependency direction are the same for every
 application type. Only the controller's binding and the view's output medium change.
