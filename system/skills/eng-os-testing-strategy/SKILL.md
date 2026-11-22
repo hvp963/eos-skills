@@ -62,6 +62,19 @@ non-blocking suite with an owner and a fix-by date, never retried-until-green in
 pipeline. Quarantined longer than two weeks: fix or delete.
 - Failure mode: retry-on-failure hides real race conditions behind green builds and teaches the team to ignore red ones.
 
+## Ratchet Baselines
+
+When a rule is adopted on code that already breaks it, hold it with a ratchet instead of a rewrite:
+
+- count violations per rule per unit (usually per file) into a committed baseline
+- a count above its baseline fails (a new violation); a count below it also fails, telling you to lower the baseline, so the baseline only falls
+- a unit with no entry is allowed none; an entry that reaches zero is deleted
+- write the baseline with one command, once at adoption or after a deliberate decision, never to make a new failure pass
+- each failure is one line: file, rule, found, allowed
+
+Use it for design conformance (`eng-os-design-system`), accessibility known violations, import direction, and SQL outside the repository layer. A text-reading check is a net for drift, not a parser.
+- Failure mode: the baseline is regenerated to turn a red build green, or sits above the count, so a fixed violation quietly returns.
+
 ## Failure Modes
 
 - mocking internal helpers instead of boundary dependencies hides real integration failures
@@ -71,6 +84,7 @@ pipeline. Quarantined longer than two weeks: fix or delete.
 - property tests without a fixed random seed fail non-reproducibly in CI
 - no load test against the Scale Targets, so the first real load is the launch
 - flaky tests retried until green hide race conditions and erode trust in red builds
+- a baseline regenerated to pass, or left above the count: fixed violations come back unnoticed
 
 ## Definition of Done
 
@@ -83,5 +97,6 @@ pipeline. Quarantined longer than two weeks: fix or delete.
 - [ ] The smallest relevant test scope was run first for this change; a full-suite run (if done) has a stated reason
 - [ ] Load, spike, and soak tests ran in stage against the Scale Targets before launch and run on a schedule, with SLO-based pass criteria
 - [ ] Flaky tests are quarantined to a non-blocking suite with an owner and fix-by date; no retry-until-green in the main pipeline
+- [ ] A rule adopted on code that already breaks it is held by a ratchet baseline that only falls and is never regenerated to pass
 
 For a worked example, see `references/example.md`.

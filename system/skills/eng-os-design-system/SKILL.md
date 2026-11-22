@@ -1,6 +1,6 @@
 ---
 name: eng-os-design-system
-description: "Use when building UI: design tokens, typography, component patterns, color/elevation system, the four-region app shell (header/footer/nav/application panel), responsive breakpoints, or when a new app should inherit visual language from a sibling app."
+description: "Use when building UI: design tokens, typography, component patterns, color/elevation system, the four-region app shell (header/footer/nav/application panel), responsive breakpoints, reusable primitives and the check that holds them, light/dark themes, or when a new app should inherit visual language from a sibling app."
 sources:
   - meso/design-system.md
 globs: ["**/*.css", "**/*.tsx", "**/*.jsx", "**/components/**"]
@@ -24,7 +24,7 @@ screens that should share a consistent visual language.
 The OS-level rule holds for every project regardless of its values: declare one token file as
 the single source of truth for color, elevation, typography, and radius, and reference only
 tokens from components; declare one typographic scale and add no sizes outside it; declare the
-four-region app shell and the three breakpoints; record which profile the project uses in
+four-region app shell and the three breakpoints; declare the primitive set and the check that holds it (Component Layer); record which profile the project uses in
 CLAUDE.md. The concrete values (token names, the type scale, header height, content width) are
 the **default profile** in `references/profile-default.md`, which a project adopts unchanged,
 inherits from a sibling app, or replaces with its own. Changing values is a project decision;
@@ -37,6 +37,20 @@ skipping the declaration is a violation.
 - **Tables**: structured data, 3+ comparable columns. Not for 2-column label/value pairs (use a definition list or card).
 - **Callouts**: left-border or inline-tip variants, colored per semantic meaning (purple=info, green=tip, amber=warning, red=breaking/error). Use sparingly; overuse flattens urgency.
 - **Sticky nav header**: brand left, metadata right; no primary actions in a document header; height and elevation per the declared profile.
+
+## Component Layer
+
+Tokens alone do not stop markup drift. Build UI from declared primitives and hold them with a test.
+
+- **Primitives.** One component per recurring piece of UI (default set in `references/profile-default.md`). A raw `<button>`, `<input>`, `<select>`, `<textarea>`, or `<table>` outside the primitives folder is a violation; a control with no primitive yet carries `ds-raw: <reason>` on the line before it.
+- **Variants only where the difference has a purpose** (action kind, tone, size). An accidental difference is unified onto the default, taken from the markup used most, and listed in the change. A primitive holds no hex colour and no inline style.
+- **Adopt by wrapping.** Build each primitive from the classes the screens already use, so adoption changes nothing a user sees except the listed unifications. Shell, shared components, and entity screens first, then each area.
+- **The declaration is data.** Type sizes, radii, elevations, and colour token names live once in one source file. The check and the reference page read it; a token named there and missing from the stylesheet fails a test.
+- **Catalog and reference page.** Each primitive has an entry: name, kind, file, variants, what it is for, what it is not for. The page renders every scale, token, and component for real. A file with no entry fails; an entry with no example fails.
+- **Conformance check.** One test counts per file hex colours, off-scale text sizes, off-scale radii, inline colour styles, and raw controls, and compares them with a committed baseline that only falls (`eng-os-testing-strategy`, Ratchet Baselines). It reads text, so it is a net for drift, not a parser.
+- **Themes and palettes are token overrides.** A dark theme or alternate palette redeclares the same token names; components never fork. Check contrast per theme and per palette, and apply the saved theme before first paint.
+
+Detail, the check's rule list, and the adoption sequence: `references/component-layer.md`.
 
 ## App Shell
 
@@ -73,6 +87,11 @@ Use relative units (`%`, `rem`, `fr`, `minmax()`) and flex/grid layouts, not fix
 for any container whose content is variable-length. A component is not done until it has been
 checked at all three breakpoints, not just the one it was built at.
 
+Check it in a real browser, not by reading the CSS: load each page at the three widths and fail
+when the page body scrolls sideways, naming the elements that stick out. An element with a scroll
+area of its own (a table, a tab row, a diagram) is fine; one that pushes the whole page sideways
+is the failure. Fixed-column grids and rows that do not wrap are what this finds.
+
 ## UX and Information Architecture
 
 These are UI constraints, not system-boundary ones.
@@ -89,6 +108,11 @@ operable with a visible focus state; contrast 4.5:1 (3:1 for large text and UI c
 color never the only carrier of meaning; accessible names on images, meaningful icons, and
 controls; `prefers-reduced-motion` respected; reflow to 320px without horizontal scroll. Run an
 automated checker (axe or equivalent) in CI on every page and a keyboard-only pass per screen.
+
+The automated pass also includes a keyboard pass: tab through each page and fail when a focused
+control shows no visible focus indicator, in addition to axe. Run both against a production
+build, not a development server, whose overlay adds findings that are not the app's. Known
+violations live in a list that may only shrink (`eng-os-testing-strategy`, Ratchet Baselines).
 - Failure mode: an application millions use that a keyboard-only or screen-reader user cannot operate is a legal exposure, and every retrofit costs more than building it in.
 
 ## Internationalization Readiness
@@ -148,6 +172,9 @@ within one repo or team; use a versioned published package once teams or repos d
 - a screen operable only by mouse, or a state carried by color alone: excluded users and legal exposure
 - strings, date formats, and left-to-right assumptions spread across components: the first new locale is a rewrite
 - nav items that trigger actions; multi-entity saves that are not atomic within one transaction
+- raw controls, off-scale sizes, and inline colours added screen by screen with no primitive and no check: each passes review alone, the system drifts in total
+- an accidental difference frozen into a primitive as a variant: today's drift becomes the API
+- a theme or palette checked for contrast once, in the light theme only
 
 ## Definition of Done
 
@@ -165,5 +192,8 @@ within one repo or team; use a versioned published package once teams or repos d
 - [ ] Strings, dates, numbers, and currencies are locale-ready; layout checked once in a right-to-left locale
 - [ ] Nav items are destinations only; multi-entity saves are atomic within one transaction; variable-size grouped UI computes offsets from content
 - [ ] CLAUDE.md declares which design profile this project uses (default, inherited sibling, or its own)
+- [ ] Recurring UI is built from the declared primitives; raw controls carry `ds-raw: <reason>`; primitives hold no hex colour or inline style
+- [ ] Scales and token names are declared once as data; the catalog and reference page render every entry; the conformance check runs on every build against a baseline that only falls
+- [ ] Every theme and palette is token overrides only and has been checked for contrast
 
 For a worked example, see `references/example.md`.

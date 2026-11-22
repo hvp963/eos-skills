@@ -88,7 +88,7 @@ answer; a path, folder, or component name is.
 | Composition root | The `app` module that builds repositories and injects them into services |
 | Dependency direction enforced | The tool and config path that fails CI on an upward import or a cross-capability import (`dependency-cruiser`, `import-linter`, or the language skill's equivalent) |
 | Business logic in the service layer | The actual `services/` path per capability; handlers hold no business rule |
-| Global CSS, no hardcoded styles | The global stylesheet or token file path, and which design profile it follows |
+| Global CSS, no hardcoded styles | The global stylesheet or token file path, and which design profile it follows; for a project with UI, the primitives folder, the catalog, and the conformance check with its baseline file (`eng-os-design-system` Component Layer) |
 | Four-region app shell | The four component paths (header, footer, nav panel, and where per-route content renders) |
 | Reusable components | The shared-components folder path |
 | Transport mapping | What each capability's controllers bind to (route, command, queue or schedule) and what its views produce (payload, terminal output, event, rendered UI), even for a CLI or worker |
@@ -120,6 +120,7 @@ Bootstrap is complete when:
 - every template section is populated; no placeholder text remains
 - the project folder structure is declared and matches `micro/project-structure.md`
 - if part of a suite, `## Design System Carryover` points to the source app or names the profile rather than retyping tokens
+- for a project with UI, `## Design System Carryover` also names the primitives folder, the catalog, and the conformance check with its baseline, or says why there is none yet
 - `## Terminology Lock` and `## Message Area Codes` are populated (or explicitly `N/A` with a reason) before any code, UI copy, or messages exist
 - if a Product Brief existed, its content was transcribed, not re-invented
 - every language in the stack has a coding-standards skill in Active Skills, or one was created and verified against the project before code was written in that language

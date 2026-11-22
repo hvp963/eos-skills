@@ -103,6 +103,7 @@ than silently redirecting.
 | B14 | Dependency direction holds: no import from a lower layer to a higher one, and no import reaches into another capability's `controllers/`, `repositories/`, `models/`, or `views/`; the enforcing tool (`dependency-cruiser`, `import-linter`) exists, is configured, and runs in CI | Import graph (run the tool, or grep imports), CI config |
 | B15 | Services receive repositories by injection: no `services/` file constructs a repository or imports a database client or transport type; `app`/`main` is the only module wiring both | `services/` imports, composition root |
 | B16 | `tests/` mirrors `src/` layer for layer, with one test file per source file; service tests use a fake repository and need no database | Folder listing of `tests/` vs. `src/` |
+| B17 | Component layer (`eng-os-design-system` Component Layer): the declared primitives live in one folder with a catalog entry each; a grep for raw `<button>`, `<input>`, `<select>`, `<textarea>`, and `<table>` outside that folder finds only marked ones (`ds-raw: <reason>`) or ones inside the baseline; the conformance check runs on every build, and no baseline entry sits above the file's current count | Primitives folder, catalog, baseline file, check output |
 
 ### C. Checkpoint-Table Compliance (spot-check recent work, not full history)
 
@@ -120,7 +121,7 @@ of a mature project will never finish and isn't what this skill is for.
 | C5 | `eng-os-database-design` | New tables/migrations are reversible or the irreversibility is justified in a comment/ADR; indexes have a stated rationale | Migration files |
 | C6 | `eng-os-security-practices` | Input validated at boundaries; least-privilege access; no secrets in code or logs; trust boundaries explicit | Auth/input-handling code |
 | C7 | `eng-os-observability` | Structured logs carry `trace_id`/`span_id`/`severity`/`service`; metrics defined, not just logs | Logging call sites |
-| C8 | `eng-os-testing-strategy` | Test files exist per feature; happy-path and failure-path both covered; external deps mocked | Test directory vs. source directory (ratio + gaps) |
+| C8 | `eng-os-testing-strategy` | Test files exist per feature; happy-path and failure-path both covered; external deps mocked; where a ratchet baseline exists, no entry sits above its current count and the file has only ever been lowered | Test directory vs. source directory (ratio + gaps) |
 | C9 | `eng-os-deployment-practices` | Environments separated; health checks hit real dependencies, not stubs; a rollback path exists | CI/CD config |
 | C10 | `eng-os-prose-style` | Recent README/PR/commit prose: no repeated contrastive negation, no filler intensifiers, no em dash joining two clauses, no clichés, no fake precision or generic closers | README, recent commit messages, docs |
 | C11 | `eng-os-documentation-standards` | ADRs exist for significant decisions made since the last audit (new dependency, contract change, deviation from a documented pattern) | `docs/decisions/` vs. `git log` for matching decision points |

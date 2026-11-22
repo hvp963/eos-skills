@@ -199,7 +199,7 @@ operational messages (handoff reminders, save confirmations):
 | Composition root | `src/web/app.ts` builds each repository and injects it into its service |
 | Dependency direction enforced | `dependency-cruiser` config at `.dependency-cruiser.cjs`, run in CI; fails on an upward import or a cross-capability import that skips `services/` |
 | Business logic in the service layer | `src/web/capabilities/rotations/services/`, `shifts/services/`, `engineers/services/` — retry/reminder scheduling logic moves here, out of `src/api/` route handlers |
-| Global CSS, no hardcoded styles | `src/web/styles/tokens.css`, following `eng-os-design-system` skill's token set; components reference tokens only |
+| Global CSS, no hardcoded styles | `src/web/styles/tokens.css`, following `eng-os-design-system` skill's token set; components reference tokens only. Primitives in `src/web/shared/views/components/ui/` with a catalog entry each; `tests/design-system.test.ts` counts raw controls, off-scale sizes, and hex colours against `tests/design-system-baseline.json`, written once and only ever lowered |
 | Four-region app shell | `shared/views/shell/AppHeader.tsx`, `AppFooter.tsx`, `NavPanel.tsx` (links: Rotations, Schedule, Engineers); each capability's `views/` renders into the application panel |
 | Reusable components | `shared/views/components/ShiftCard.tsx`, `HandoffBadge.tsx` — extracted since both already appear on 2+ pages in the existing code |
 | Transport mapping | Controllers bind page routes (`rotations.controller.ts` handles `/rotations`); views produce rendered pages; the existing flat `src/api/` route handlers are renamed and split into the capability controllers during the retrofit task |

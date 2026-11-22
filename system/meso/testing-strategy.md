@@ -239,6 +239,28 @@ the main pipeline. A quarantined test older than two weeks is either fixed or de
 - Failure mode: retry-on-failure in CI hides real intermittent bugs (race conditions, order
   dependence) behind green builds and teaches the team to ignore red ones.
 
+### Ratchet Baselines
+
+When a rule is adopted on a codebase that already breaks it, a ratchet makes the rule enforceable
+on the first day without a rewrite:
+
+- count the violations per rule per unit (usually per file) and commit the counts as a baseline
+- a count above its baseline fails: that is a new violation
+- a count below its baseline also fails, with the instruction to lower the baseline: that locks a
+  fix in, so the baseline only ever falls
+- a unit with no entry is allowed none, and an entry that reaches zero is deleted
+- the baseline is written by one command, run once at adoption or after a deliberate decision,
+  never to make a new failure pass
+- every failure is one line naming the file, the rule, the count found, and the count allowed
+
+Use it for any rule that is cheap to count and expensive to fix at once: design conformance
+(`eng-os-design-system`), accessibility known violations, import direction, SQL outside the
+repository layer. A rule that reaches an empty baseline is a plain gate from then on. A check that
+reads text with regular expressions is a net for drift, not a parser, and its notes say so.
+
+- Failure mode: the baseline is regenerated to turn a red build green, or allowed to sit above the
+  count, so a fixed violation can quietly come back.
+
 ## Test Pyramid
 
 ```
@@ -263,6 +285,7 @@ Invert the pyramid (many integration tests, few unit tests) and the suite become
 - property tests without a fixed random seed fail non-reproducibly in CI
 - no load test against the stated Scale Targets, so the first real load the system sees is the launch
 - flaky tests retried until green in CI hide real race conditions and erode trust in every red build
+- a baseline regenerated to turn a red build green, or left above the count, so a fixed violation can quietly come back
 
 ---
 
@@ -277,3 +300,4 @@ Testing strategy is complete when:
 - the test suite runs in CI on every commit with a defined pass/fail gate
 - load, spike, and soak tests run in stage against the Scale Targets before launch and on a schedule, with SLO-based pass criteria
 - flaky tests are quarantined to a non-blocking suite with an owner and fix-by date; no retry-until-green in the main pipeline
+- a rule adopted on code that already breaks it is held by a ratchet baseline: counts may not rise, a baseline above the count fails, and the baseline is never regenerated to pass

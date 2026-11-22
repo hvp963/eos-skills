@@ -6,6 +6,17 @@
 
 ---
 
+## [1.10.0] — 2026-11-21
+
+### Added
+- **Component layer in `eng-os-design-system`.** A project declares a set of primitives (default set in `references/profile-default.md`), bans raw controls outside them except with a `ds-raw: <reason>` marker, allows a variant only where the difference has a purpose, writes the scales and token names once as data, keeps a catalog with a use and a not-for line per entry and a reference page that renders each one, and holds it all with a conformance check. New `meso/design-system.md` 3.12, a Component Layer section in the skill, and `references/component-layer.md` (the check's five rules, the catalog entry shape, the adoption sequence). E-33.
+- **Themes and palettes (3.13).** A dark theme and alternate palettes are token overrides of the same names, never forked components, with contrast checked per theme and per palette and the saved theme applied before first paint. E-35.
+- **Ratchet baselines in `eng-os-testing-strategy`.** The way to adopt a rule on code that already breaks it: a committed per-file baseline where a count may not rise, a baseline above the count also fails, and the baseline is never regenerated to pass. E-34.
+- Responsive (3.7) and accessibility (3.9) gained the verification method: a real-browser sweep at the three widths that fails on sideways page scroll, a keyboard pass that fails on a focused control with no visible focus indicator, run against a production build, with known violations in a list that only shrinks.
+- Design-system Definition of Done and Failure Modes gained the matching rows.
+- **The new rules are audited and bootstrapped, not only written.** `eng-os-audit` gained B17 (the component layer: primitives, marked raw controls, check on every build, baseline never above the count) and C8 now checks a ratchet baseline. `eng-os-bootstrap`'s Architecture Practices Gate row for global CSS, its Definition of Done, its example, and the CLAUDE.md template's Design System Carryover section now ask a project with UI to name its primitives folder, catalog, and conformance check.
+- Glossary: Primitive, Component Layer, Component Catalog, Conformance Check, Ratchet Baseline.
+
 ## [1.9.0] — 2026-11-19
 
 ### Added

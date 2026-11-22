@@ -286,6 +286,11 @@ Use relative units (`%`, `rem`, `fr`, `minmax()`) and flex/grid layouts, not fix
 for any container whose content is variable-length. A component is not done until it has been
 checked at all three breakpoints, not just the one it was built at.
 
+Check it in a real browser, not by reading the CSS: load each page at the three widths and fail
+when the page body scrolls sideways, naming the elements that stick out. An element with a scroll
+area of its own (a table, a tab row, a diagram) is fine; one that pushes the whole page sideways
+is the failure. Fixed-column grids and rows that do not wrap are what this finds.
+
 ---
 
 ## 3.8 UX and Information Architecture
@@ -415,6 +420,11 @@ Every screen meets WCAG 2.2 Level AA. This is a Definition-of-Done row, not a fo
 Run an automated checker (axe or equivalent) in CI on every page, and a keyboard-only manual pass
 per screen before it is marked done.
 
+The automated pass also includes a keyboard pass: tab through each page and fail when a focused
+control shows no visible focus indicator, in addition to axe. Run both against a production
+build, not a development server, whose overlay adds findings that are not the app's. Known
+violations live in a list that may only shrink (`eng-os-testing-strategy`, Ratchet Baselines).
+
 - Failure mode: an application serving millions of users that a keyboard-only or screen-reader
   user cannot operate is a legal exposure in most jurisdictions, and every retrofit costs more
   than building it in.
@@ -446,11 +456,76 @@ holds for every project regardless of its values:
   radius, and reference only tokens from components
 - declare one typographic scale and add no sizes outside it
 - declare the four-region app shell and the three breakpoints
+- declare the primitive set, the catalog, and the conformance check that holds them (3.12)
 - record the chosen values in the project's CLAUDE.md Design System section, or point to the
   profile or sibling app they are inherited from
 
 A project may adopt the default profile unchanged, inherit a sibling app's, or declare its own.
 Changing values is a project decision; skipping the declaration is a violation.
+
+## 3.12 Component Layer
+
+A design system that stops at tokens leaves every screen to rebuild its buttons, inputs, and
+tables by hand. The tokens hold, and the markup around them drifts: three paddings for the same
+button, five radii, a status colour written as a hex value. The component layer closes that gap
+and is enforced the same way the layering rules are, by a test.
+
+**Primitives.** The project declares a set of primitives, one component for each recurring piece
+of UI, and a screen is assembled from them. The default set is in `profile-default.md`: button,
+icon button, badge, card, heading, stat, empty state, form field with its text, select, and
+multi-line inputs, and data table. A raw control (`<button>`, `<input>`, `<select>`,
+`<textarea>`, `<table>`) outside the primitives folder is a violation. A control with no primitive
+yet carries a marker comment on the line before it, `ds-raw: <reason>`, and a marker with no
+reason does not count.
+
+**Variants.** A primitive has a variant only where the difference has a purpose: an action kind,
+a tone, a size. A difference with no purpose (`px-2` on one screen and `px-3` on another) is
+unified onto the default, which is taken from the markup the screens use most, and is listed in
+the change so a reviewer sees what moved. A primitive is built from tokens only: no hex colour
+and no inline style inside it.
+
+**Adopting it on an existing app.** Build each primitive from the classes the screens already
+use, so adopting one changes nothing a user sees apart from the listed unifications. Move the
+shell, the shared components, and the entity screens first, then each area in turn.
+
+**The declaration is data.** The scales (type sizes, radii, elevations) and the colour token
+names are written once, in one source file in the project's language, which the conformance
+check and the reference page both read. A token named in the declaration but absent from the
+stylesheet fails a test. Nothing retypes a value.
+
+**The catalog.** Each primitive, and each older shared component the system adopts as it is, has
+a catalog entry: name, kind (`primitive` or `existing`), file, variants, what it is for, and what
+it is not for and what to use instead. The not-for line is what stops a second component being
+written for a case the first already covers. A reference page draws every scale, token, and
+component by rendering the real component in each variant. A file in the primitives folder with
+no catalog entry fails a test, and so does an entry with no example.
+
+**The conformance check.** One test scans the source and counts, per file and per rule: hex
+colours, text sizes outside the scale, radii outside the scale, inline colour styles, and raw
+controls. It compares each count with a committed baseline using the ratchet in
+`eng-os-testing-strategy` (Ratchet Baselines): a count may not rise, and a baseline above the
+count fails, so a fix obliges lowering its entry. Reference content such as a documentation
+section may carry its own baseline and fall at its own pace. The scan reads text, so it is a net
+for drift and not a parser: a class assembled from parts at run time is not seen, which is
+another reason to write utility classes out in full. `references/component-layer.md` has the
+rule list, the entry shape, and the adoption sequence.
+
+- Failure mode: a token file with no component layer and no check. The app passes review
+  one screen at a time while raw controls, off-scale sizes, and inline colours accumulate until
+  a theme or brand change has to touch hundreds of places.
+
+## 3.13 Themes and Palettes
+
+A dark theme and any alternate palettes are override blocks that redeclare the same token names,
+never a second set of components. Because a component draws only tokens, every theme and palette
+restyles it for free; a component that uses a hex colour or an inline colour style opts out and
+breaks in the other theme. Contrast is checked per theme and per palette, not once: accent hues
+are chosen to reach 4.5:1 on white, on the page background, and on their own tints, and a new
+value is checked with the accessibility check before it ships. The saved theme is applied before
+first paint, so a reload does not flash the wrong one.
+
+- Failure mode: a palette that passes in the light theme and fails contrast in the dark one, or a
+  hard-coded colour that stays light on a dark page, found by a user and not by a check.
 
 ## 4. Layout Principles
 
@@ -550,6 +625,9 @@ Hand-retyped tokens drift silently. A color or class-name typo introduced while 
 - a screen operable only by mouse, or a semantic state carried by color alone: excluded users and legal exposure
 - strings, date formats, and left-to-right assumptions spread across components: the first new locale is a rewrite
 - nav items that trigger actions, and multi-entity saves that are not atomic within one transaction (see 3.8)
+- raw controls, off-scale sizes, and inline colours written screen by screen with no primitive and no check: every screen passes review alone and the system drifts in total (3.12)
+- an accidental difference frozen into a primitive as a variant: today's drift becomes the API
+- a theme or palette tested for contrast once, in the light theme only (3.13)
 
 ---
 
@@ -571,3 +649,6 @@ A UI or document is built to this standard when:
 - strings, dates, numbers, and currencies are locale-ready, and the layout has been checked once in a right-to-left locale
 - UX and information-architecture rules in 3.8 hold: nav items are destinations only; multi-entity saves are atomic within one transaction boundary; variable-size grouped UI computes offsets from content
 - the project's CLAUDE.md declares which design profile it uses (the default profile, an inherited sibling, or its own) rather than leaving values implicit
+- recurring UI is built from the declared primitives; a raw control carries a `ds-raw: <reason>` marker; a primitive holds no hex colour and no inline style (3.12)
+- the scales and token names are declared once as data, with a catalog and a reference page that render every entry; the conformance check runs on every build against a baseline that only falls (3.12)
+- every theme and palette is token overrides only and has been checked for contrast (3.13)

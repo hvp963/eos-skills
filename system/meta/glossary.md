@@ -1339,3 +1339,58 @@ The committed C4 diagrams in `docs/architecture/`: `context.md`, `containers.md`
 Text diagrams, so a change shows in review. They hold the shape of the system; the reasoning lives in ADRs that link to them.
 
 ---
+
+## Primitive
+One reusable visual component of a project's design system, such as a button, a badge, a card, or a data table, from which screens are assembled instead of writing the same markup again.
+
+### Example
+`Button` with the variants primary, ghost, danger, and link replaces every raw `<button>` on every screen; a screen that needs a control no primitive covers marks it `ds-raw: <reason>`.
+
+### Notes
+A primitive has a variant only where the difference has a purpose (an action kind, a tone, a size), and holds no hex colour and no inline style. See `meso/design-system.md` Section 3.12.
+
+---
+
+## Component Layer
+A project's primitives, their catalog, the declaration of its scales and token names, and the conformance check that holds them, taken together.
+
+### Example
+A `ui/` folder of twelve primitives, a catalog entry for each, one source file listing the type, radius, and elevation scales and the colour token names, and a test that fails when a screen adds a raw control or an off-scale size.
+
+### Notes
+Tokens alone do not stop markup drift; the component layer is what does. See `meso/design-system.md` Section 3.12 and `skills/eng-os-design-system/references/component-layer.md`.
+
+---
+
+## Component Catalog
+The list of a project's components, one entry each with its name, kind (primitive or an existing component adopted as it is), file, variants, what it is for, and what it is not for.
+
+### Example
+`Badge | primitive | ui/Badge.tsx | success, warning, danger, info, neutral | A short state marker beside a name or figure | Not for a count (use Stat)`.
+
+### Notes
+The "not for" line is what stops a second component being written for a case the first already covers. A reference page renders every entry; an entry with no example fails a test.
+
+---
+
+## Conformance Check
+A test that reads the source, counts per file how often it steps outside the design system (hex colours, text sizes and radii off the scales, inline colour styles, raw controls), and compares each count with a Ratchet Baseline.
+
+### Example
+`src/screens/Brands.tsx: raw-control found 26, allowed 25`.
+
+### Notes
+It reads text, so it is a net for drift and not a parser. See `meso/design-system.md` Section 3.12.
+
+---
+
+## Ratchet Baseline
+A committed record of the violations a codebase already has, per rule and per file, that a check compares against so the count may fall and may not rise.
+
+### Example
+A baseline allows a file 12 inline colours. The check passes at 12, fails at 13 (a new violation), and fails at 11 with "lower the baseline to 11", so a fix is locked in.
+
+### Notes
+It lets a rule be enforced on the first day on code that already breaks it. It is written once at adoption and never regenerated to turn a failure green. See `meso/testing-strategy.md` (Ratchet Baselines).
+
+---

@@ -81,7 +81,9 @@ Example:
 
 [If this app inherits its visual language from a sibling app, point to that sibling's design
 system declaration by path instead of retyping tokens. If it uses the Engineering OS default
-profile, say so and name the token file path. If it defines its own, populate it here.]
+profile, say so and name the token file path. If it defines its own, populate it here. For an app
+with UI, also name the primitives folder, the catalog, and the conformance check with its
+baseline file (`eng-os-design-system` Component Layer), or say why there is none yet.]
 
 ## Mock Data Scale
 

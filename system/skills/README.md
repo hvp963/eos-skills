@@ -68,10 +68,10 @@ skills/
   eng-os-security-practices/     input validation, secrets, authz model, threat model, audit log
   eng-os-privacy-and-governance/ classification, personal data, retention, lineage, access review
   eng-os-observability/          logs, metrics, traces, cardinality, sampling, OpenTelemetry
-  eng-os-testing-strategy/       unit/integration/contract/property/AI-eval/load layers, flaky policy
+  eng-os-testing-strategy/       unit/integration/contract/property/AI-eval/load layers, flaky policy, ratchet baselines
   eng-os-deployment-practices/   CI/CD, environments, expand/contract ordering, rollback, rotation
   eng-os-platform-infrastructure/ IaC, environment parity, regions and cells, backup and restore
-  eng-os-design-system/          rule vs. profile, app shell, responsive, accessibility, i18n, UX/IA
+  eng-os-design-system/          rule vs. profile, component layer, app shell, themes, responsive, accessibility, i18n, UX/IA
   eng-os-documentation-standards/ ADRs (with threshold), contracts, runbooks
   eng-os-team-practices/         code review, PR standards (+ incident/on-call/tech-debt in references/)
   eng-os-code-conventions/       naming, comments, terminology lock

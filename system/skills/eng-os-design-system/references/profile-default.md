@@ -35,3 +35,21 @@ Label/Eyebrow (10–12px/600–700, uppercase). Do not introduce sizes outside t
 Max content width 820–860px. Page padding 40–48px vertical / 24px horizontal, on `--bg`, never
 `--surface`. Section spacing 44–48px. Hierarchy through weight/size first, color second. Narrow
 (5px) scrollbars on data-heavy layouts.
+
+## Primitive Set
+
+The default set of primitives a project declares (`SKILL.md`, Component Layer), each with a
+catalog entry. A project may add to it; a recurring piece of UI that appears a second time becomes
+a primitive and gets an entry.
+
+| Primitive | For | Not for |
+|---|---|---|
+| Button | An action the user starts: primary (one per view), ghost, danger, link | Navigation (use a link); an icon with no words (IconButton) |
+| IconButton | An action shown only as an icon; the label is required and becomes the accessible name | An action with room for words |
+| Badge | A short state or category marker; always carries words | A count or a figure (Stat) |
+| Card | One discrete piece of content of three or more fields; optional title, accent, link | A uniform list (table) or prose |
+| Heading | Level 2 to 4 inside a page; level chooses the element, variant the look | The one level 1 heading (the page header) |
+| Stat | One figure with its label, read as a term and its definition | A list of many figures |
+| EmptyState | What a view shows when there is nothing yet, with the next step as an action | A loading state or an error |
+| Field with TextInput, SelectInput, TextArea | One control with its label, hint, and error tied together for assistive technology | A control that is its own label |
+| DataTable | Rows with three or more comparable columns, scrolling sideways inside its wrapper | Two-column label/value pairs (definition list) |
