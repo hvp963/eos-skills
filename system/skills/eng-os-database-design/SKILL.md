@@ -1,6 +1,6 @@
 ---
 name: eng-os-database-design
-description: "Use when designing schemas, indexes, migrations, or partitioning strategy, or reviewing database access patterns."
+description: "In a project governed by the Engineering OS, use when designing schemas, indexes, migrations, or partitioning strategy, or reviewing database access patterns."
 sources:
   - meso/database-design.md
 globs: ["**/*.sql", "**/migrations/**", "**/models/**", "**/schema/**"]
@@ -129,6 +129,8 @@ Declare one tenancy model: shared tables with `tenant_id` on every tenant-owned 
 - a tenant-scoped query missing its tenant predicate
 
 ## Definition of Done
+
+All items are Per change: this domain has no Standing (release and audit) items.
 
 - [ ] Key and schema choices are justified (normalize/denormalize, UUID/int/composite)
 - [ ] Naming is consistent and unambiguous without external docs

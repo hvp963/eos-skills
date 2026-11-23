@@ -1,17 +1,31 @@
 ---
 name: eng-os-prose-style
-description: "Use before marking any doc file, README, UI copy, commit message, PR description, or other user-facing prose as done. Checks for the full set of patterns that make text read as unedited AI output (contrastive-negation headlines, filler words, em-dash clause-joining, cliché/inflated vocabulary, reflexive openers and reassurance, forced balance, fake precision, overexplaining, mechanical formatting, repetitive sentence structure, verbatim duplicate content across sections, vague placeholder nouns, generic content with no concrete example) and rewrites them directly."
+description: "In a project governed by the Engineering OS, use when writing, editing, or reviewing any doc file, README, UI copy, commit message, PR description, or other user-facing prose, and again before marking it done. Checks for the full set of patterns that make text read as unedited AI output (contrastive-negation headlines, filler words, em-dash clause-joining, cliché/inflated vocabulary, reflexive openers and reassurance, forced balance, fake precision, overexplaining, mechanical formatting, repetitive sentence structure, verbatim duplicate content across sections, vague placeholder nouns, generic content with no concrete example) and rewrites them directly."
 sources:
   - meso/prose-style.md
 globs: ["**/*.md", "**/*.html", "**/*.mdx", "**/README*"]
 always_apply: false
 verified_platforms: [claude-code]
 ---
-<!-- lint-os: allow-em-dash -->  This file documents the em dash rule and must show the banned pattern.
 
 # Prose Style
 
-Applies to prose, including the sentence-level voice of inline code comments — cliché vocabulary,
+## Short Text (commit messages, PR titles, UI labels)
+
+For text of a line or two, run these five checks instead of the full pattern table:
+
+1. No em dash joining two clauses.
+2. No filler intensifier (just, simply, really, actually, basically).
+3. No contrastive-negation headline ("X, not Y" as the whole message).
+4. No cliché vocabulary (leverage, seamless, robust, streamline, unlock).
+5. It names the concrete change, what changed and where, never "various improvements" or "update code".
+
+The full pattern table below applies to documents, READMEs, PR descriptions over five lines, and
+UI copy blocks.
+
+## Scope
+
+Applies to prose, including the sentence-level voice of inline code comments: cliché vocabulary,
 filler words, and reflexive tone are checked here the same way in a comment as in a doc page. Code
 comments' placement, structure, and length ceiling are `eng-os-code-conventions`'s job instead;
 the two skills' Definitions of Done are both run against a comment before it's considered done, one
@@ -22,6 +36,7 @@ body text reused across sibling sections or pages (always a required fix once fo
 
 ## The Patterns
 
+<!-- lint-os: allow-em-dash-begin -->
 | # | Pattern | The tell | The test | The fix |
 |---|---|---|---|---|
 | 1 | Contrastive negation | "X, not Y" / "not just A, it's B" / "less about X, more about Y," especially as a headline | Is each instance independently load-bearing (a real reader misconception being corrected), or is it rhythm? | State the fact directly; drop "not Y" unless it corrects a specific wrong assumption |
@@ -38,12 +53,15 @@ body text reused across sibling sections or pages (always a required fix once fo
 | 12 | Duplicate content across sections (hard check) | The same paragraph, or one differing by only a word or two, reused under two or more different headings, cards, or sibling pages | Diff each section's body against every sibling sharing its heading pattern or grid position: are any two identical or near-identical? | Write distinct, section-specific body content for each heading; merge or delete a section that truly has nothing different to say |
 | 13 | Vague placeholder noun reused for concrete things | One abstract noun ("intelligence," "insights," "solutions," "capabilities," "experience") standing in for several different concrete things (a score, a tag, a field, a record) across a document | Substitute the specific referent at each instance: does the sentence get more specific without getting longer? | Name the concrete thing at each instance instead of reusing the abstract noun |
 | 14 | Legitimate exceptions | See below | n/a | n/a |
+<!-- lint-os: allow-em-dash-end -->
 
 ## Legitimate Exceptions (don't over-correct)
 
 - One genuine contrastive use per document, correcting a real likely misreading, is fine.
 - A restrictive "only" ("required **only** for fields with a declared SLA") is a real scope limit, not filler. Keep it.
+<!-- lint-os: allow-em-dash-begin -->
 - Em dash has exactly three legitimate uses, none of them clause-joining: a rare, genuinely short parenthetical aside where parentheses would read as fussier; a `Label — definition` pairing in a table cell, tooltip, or mind-map node (a distinct compact convention, not flowing prose); and a title-bar convention (`Page Name — Site Name`). Every other em dash in flowing prose is a required fix, not a judgment call.
+<!-- lint-os: allow-em-dash-end -->
 - A term from the cliché list used as a literal proper noun (an actual product name) is not banned.
 - A genuine congratulation for a hard, verified accomplishment is not reflexive praise.
 - A real "it depends" is legitimate when two paths genuinely diverge on facts the writer doesn't yet have. It is not legitimate when used to dodge a call the writer could make.
@@ -111,6 +129,8 @@ See `references/example.md` for a longer before/after pass on real flagged docum
 
 ## Definition of Done
 
+All items are Per change: this domain has no Standing (release and audit) items.
+
 - [ ] No paragraph or heading contains contrastive negation more than once unless each instance independently corrects a specific likely misreading
 - [ ] Every filler/minimizer candidate (just, simply, only, really, actually, actual, basically, merely) was tested with the removal test; only load-bearing ones remain
 - [ ] No em dash joins two clauses anywhere in flowing prose; every instance was replaced with the punctuation matching the real relationship, except for the three named exceptions (rare true parenthetical, label-definition, title-bar convention)
@@ -121,7 +141,7 @@ See `references/example.md` for a longer before/after pass on real flagged docum
 - [ ] The passage answers directly before background, with no restated question and no repeated conclusion
 - [ ] Heading/bullet/summary structure matches what the content needs, not a default template
 - [ ] No run of consecutive sentences shares the same templated opener, and no list was forced to three items or a paragraph to matched pairs by habit
-- [ ] Every section/card/page sharing a heading pattern or grid position with its siblings was diffed against those siblings; no two are identical or near-identical in body text — required, not a judgment call
+- [ ] Every section/card/page sharing a heading pattern or grid position with its siblings was diffed against those siblings; no two are identical or near-identical in body text (a required check, not a judgment call)
 - [ ] Any abstract noun recurring three or more times across the document was tested by substituting its concrete referent at each instance, and replaced wherever that substitution reads more specifically
 - [ ] At least one concrete example, name, number, date, or decision is present where the topic supports one, and a real trade-off is stated rather than only benefits
 - [ ] The pass was applied with sentence-level judgment on the eleven judgment-call patterns, and with hard, non-negotiable checks on em dash and duplicate content: no restrictive "only," no legitimate tabular/tooltip dash convention, no genuinely-shaped heading, no literal proper noun, and no required-identical boilerplate clause was stripped or flagged by mistake

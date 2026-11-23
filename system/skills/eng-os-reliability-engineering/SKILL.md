@@ -1,6 +1,6 @@
 ---
 name: eng-os-reliability-engineering
-description: "Use when defining SLOs or error budgets, setting timeouts or retries on an outbound call, bounding a queue or pool, adding a circuit breaker or degraded path, or planning a chaos exercise. Owns how a running system stays within its targets under load and partial failure."
+description: "In a project governed by the Engineering OS, use when defining SLOs or error budgets, setting timeouts or retries on an outbound call, bounding a queue or pool, adding a circuit breaker or degraded path, or planning a chaos exercise. Owns how a running system stays within its targets under load and partial failure."
 sources:
   - meso/reliability.md
 globs: ["**/*"]
@@ -82,10 +82,15 @@ game-day record.
 
 ## Definition of Done
 
-- [ ] Every user-facing capability has SLIs, SLOs, and an error budget with burn-rate alerts
+### Per change
+
 - [ ] Every outbound call has a timeout derived from the propagated deadline
 - [ ] Retry is owned by one declared layer per call path, with jitter, cap, and budget
 - [ ] Every dependency is behind a circuit breaker with a defined degraded response
 - [ ] Pools and queues are bounded per workload class; shedding order is declared
 - [ ] Dependencies are ranked critical or non-critical; each non-critical one has a tested degraded path
+
+### Standing (release and audit)
+
+- [ ] Every user-facing capability has SLIs, SLOs, and an error budget with burn-rate alerts
 - [ ] Chaos exercises run on a schedule with hypotheses, measured outcomes, and tracked gaps

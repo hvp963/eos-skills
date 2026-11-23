@@ -14,6 +14,10 @@ without hunting for context. It must include:
 // runbook structure
 # Runbook: Orders Pipeline
 
+Status: Current
+Owner: data-platform
+Last Reviewed: 2026-11-01
+
 ## System Summary
 Consumes order events from Kafka, enriches with customer profile, writes to orders warehouse table.
 Expected throughput: 2,000 events/minute.

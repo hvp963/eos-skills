@@ -149,10 +149,16 @@ ticket for every gap. Rollback drills (`meso/deployment.md`) and DR drills
 ## Definition of Done
 
 Reliability design is complete when:
-- every user-facing capability has SLIs, SLOs, and an error budget with burn-rate alerts
+
+### Per change
+
 - every outbound call has a timeout derived from the propagated deadline
 - retry is owned by one declared layer per call path, with jitter, cap, and budget
 - every dependency is behind a circuit breaker with a defined degraded response
 - pools and queues are bounded per workload class; load shedding order is declared
 - dependencies are ranked critical or non-critical, and each non-critical one has a tested degraded path
+
+### Standing (release and audit)
+
+- every user-facing capability has SLIs, SLOs, and an error budget with burn-rate alerts
 - chaos exercises run on a schedule with hypotheses, measured outcomes, and tracked gaps

@@ -64,16 +64,19 @@ Invoke the named skill when the trigger is hit, run its Definition of Done, then
 | Infrastructure resource, region or cell layout, backup | `eng-os-platform-infrastructure` |
 | Screen, component, style, or UI copy | `eng-os-design-system` + `eng-os-prose-style` |
 | ADR, contract doc, runbook, model card, prompt registry entry | `eng-os-documentation-standards` + `eng-os-prose-style` |
-| README, commit message, PR description, or any persisted prose | `eng-os-prose-style` |
+| Commit message, PR title, or UI label | `eng-os-prose-style` Short Text block |
+| README, PR description, or any other persisted prose | `eng-os-prose-style` |
 | Code review, PR, incident, or on-call process | `eng-os-team-practices` |
 | `.ids` file | `eng-os-ai-ids-authoring` |
 | Tuning the agent workflow's cost, latency, or context | `eng-os-model-optimization` |
-| Generic vs. project-specific split in any doc | `eng-os-doc-authoring-rules` Core Rule 11 |
-| Marking a task done | Meta Definition of Done below, plus `eng-os-execute-feature` Verify and Commit if a task list is active |
+| Generic vs. project-specific split in any doc | `eng-os-documentation-standards` (each fact has one home) |
+| Marking a task done | Meta Definition of Done below, plus `eng-os-execute-feature` Verify and Record if a task list is active |
 | Finishing a feature or a behavior change | `eng-os-execute-feature` Phase 7: living documents (README, `docs/architecture/`, contracts, runbook) match the shipped code |
 | Session ends | `eng-os-documentation-standards`: an ADR for every decision meeting its threshold |
 
 **Checkpoint failures are blockers, not warnings.** Skipping a checkpoint is drift, regardless of output quality.
+
+A trigger fires whether or not its skill is in Active Skills. A fired skill missing from Active Skills is added to Active Skills in the same change, with its reason.
 
 ## Meta Definition of Done
 
@@ -82,6 +85,8 @@ Before marking any task complete, for every skill invoked during that task:
 > Did you run that skill's own Definition of Done, and did it pass?
 
 A task is done only when every checkpoint it crossed had its skill's Definition of Done run and passing.
+
+For a task, verify the DoD items about what the task changed: each skill's **Per change** section. Items that describe the project's standing state (schedules, drills, runbooks, SLO declarations, project-wide documents) sit under **Standing (release and audit)** and are verified at release and by `eng-os-audit` (row A10). A task that finds a Standing item missing records it as a gap in its summary instead of blocking.
 
 ## Session-End Rule
 

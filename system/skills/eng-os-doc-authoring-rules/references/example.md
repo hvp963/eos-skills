@@ -22,7 +22,7 @@ Why this fails Rule 5 (and, incidentally, Rule 4, "apply principles in context")
   error class, or omitting jitter and causing a thundering-herd retry storm against a recovering
   dependency.
 - It gives no validation criteria: there's no way for a reviewer to check whether an
-  implementation actually satisfies this standard or just superficially "has a retry loop."
+  implementation satisfies this standard or only superficially "has a retry loop."
 - "Reasonable max retry count" is exactly the kind of vague, unbounded phrase the Language Rules
   section warns against ("avoid vague phrases like 'best effort' unless bounded explicitly").
 
@@ -32,12 +32,12 @@ Why this fails Rule 5 (and, incidentally, Rule 4, "apply principles in context")
 ## Retry Policy
 
 Retries apply only to operations that are idempotent (see Glossary: Idempotency) and to
-failures classified as transient (timeouts, 502/503/504, connection resets), never to 4xx
-client errors or to non-idempotent writes without an idempotency key.
+failures classified as transient (timeouts, 408, 429, 502, 503, 504, connection resets), never
+to other 4xx client errors or to non-idempotent writes without an idempotency key.
 
-**Pattern:** exponential backoff with jitter. Base delay 100ms, multiplier 2x, full jitter
-(random value between 0 and the computed delay), capped at 5 retries and a 10s max delay per
-attempt.
+**Pattern:** full jitter per `eng-os-coding-standards-common` Standard 5: base 100ms, multiplier
+2x, a random wait between 0 and the computed delay, cap 10s, 2 retries (3 attempts in all), and a
+30s total budget; a `Retry-After` header raises the wait, never past the budget.
 
 **Common mistake:** retrying immediately with a fixed delay and no jitter. Under a partial
 outage, every failed caller retries in lockstep, which produces a synchronized retry spike

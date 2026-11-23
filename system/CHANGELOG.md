@@ -6,6 +6,67 @@
 
 ---
 
+## [1.11.0] — 2026-11-22 (breaking)
+
+An OS self-audit of every skill against its canon, its examples, and its own Definition of Done (72 findings, recorded with their decisions in the maintainer's audit report), applied canon first, then skill, references, templates, and examples. Running the examples (Node under `tsc --strict`, Python with structlog and OpenTelemetry, SQLite, an axe-core scan of the base CSS in Chrome) found and fixed further defects that reading had missed.
+
+### Breaking for adopters
+- **`{AREA}_NUM_RETRIES` counts retries after the first call, default 2 (3 calls in all).** Python projects that set it explicitly: subtract 1 to keep the same number of calls. Node's default drops from 4 calls to 3, the documented count.
+- **`EXECUTION_MODE` is required.** Startup fails if it is unset or not one of `dev`, `stage`, `prod`; set it in every environment, test and CI included. `.env` is loaded when present and never overrides a variable already set.
+- **One error envelope and one status rule** (`eng-os-api-design`, Error Contract): `400` shape, `422` business rule, `409` conflict, `429` rate limited. New endpoints use it; an existing public endpoint moves through Versioning Migration.
+
+### Changed (`eng-os-audit` now flags these on an existing project)
+- Constants live in `src/shared/constants/`; `shared/` holds named modules and no `utils/` folder; repository tests are the integration tests and there is no `tests/integration/`.
+- Log records carry `level` (never `severity`) and `span_id`; the operation's identifiers are top-level fields; trace context propagates as W3C `traceparent` through OpenTelemetry, bound once in the context store.
+- Every domain Definition of Done is split into **Per change** (checked by each task) and **Standing (release and audit)** (checked at release and by audit row A10).
+- ADR files are `ADR-NNN-kebab-title.md`; prompt registry entries are `prompt-NNN-kebab-title.md`; an ADR is written for decisions meeting the threshold in `meso/documentation.md` 2.1.
+- Retry is one rule in common Standard 5 (full jitter, cap, budget, `Retry-After`, one owning layer, statuses 408, 429, 502, 503, 504), with one implementation per language; `p-retry` and `tenacity` are no longer used.
+- Readiness checks only the instance's own state, with a post-deploy smoke test for dependencies; migrations run as their own gated pipeline stages.
+- AI-IDS: all eleven sections are required (`None` with a reason where one does not apply); six Core and five Extended sections; the precedence vote list is replaced by three orders (document, execution, authority); the version is bumped on any section change.
+- Palette: text tokens reach 4.5:1 on white, on `--bg`, and on their own tints over either surface (`--text-muted` #475569, new `-text` tokens, `--primary-hover`, `--primary-text`, `--on-primary`); the base CSS has a `:focus-visible` ring and a reduced-motion guard.
+- An internal rename is one complete change; an alias window applies only to a public contract.
+- Skill descriptions are scoped to a project governed by the Engineering OS.
+
+### Added
+- `eng-os-security-practices` §9, Web and Authentication Basics (output encoding, CSRF, SSRF, password storage, sessions, throttling). E-36.
+- `eng-os-ai-ids-authoring/references/example.md`: a complete spec with its metadata block, a conflict resolved by authority, and its evaluation fixtures.
+- Infrastructure drift detection (a scheduled plan per environment), cell containment and region failover as separate game-day hypotheses, anonymize-in-place erasure for records under a retention floor, agent-authored changes approved by a human, design-review sections for threat model, capacity and SLOs, classification, and cost.
+- `tools/lint-os.py` checks 12 (retired terms) and 13 (`Standard N` citations), table cells in the em-dash check, a scoped `allow-em-dash-begin`/`-end` pragma in place of the file-wide one, and the "canonical files" count.
+- `CONTRIBUTING.md`: this side-by-side list in every entry, and an OS self-audit before each release.
+
+### Fixed
+- Atomic version-guarded upsert and a guarded `MERGE` in place of read-then-write; the security example no longer logs email; services own their transaction boundary; the Node AI client is called only from a repository; both language loggers emit the standard field names; three tint pairs that failed contrast over the page background; the database, testing, service-checklist, bootstrap, and checkpoint-walkthrough examples follow the rules they illustrate; Standards 10 and 11 numbering (ADR-002 carries an erratum); model-optimization provider facts re-checked and dated.
+
+### Canon and skill files changed, side by side
+
+| Canonical file | Skill updated in the same release |
+|---|---|
+| `macro/system-quality-attributes.md` | eng-os-core (source) |
+| `meso/ai-deterministic-systems.md`, `meso/ai-ids-template.md`, `micro/templates/ai-ids-template.md` | eng-os-ai-ids-authoring |
+| `meso/api-design.md` | eng-os-api-design |
+| `meso/code-conventions.md` | eng-os-code-conventions |
+| `meso/data-governance.md` | eng-os-privacy-and-governance |
+| `meso/data-strategy.md`, `micro/templates/etl-template.md` | eng-os-data-strategy |
+| `meso/database-design.md` | eng-os-database-design |
+| `meso/deployment.md` | eng-os-deployment-practices |
+| `meso/design-system.md`, `micro/templates/base-styles.css` | eng-os-design-system |
+| `meso/documentation.md` | eng-os-documentation-standards |
+| `meso/infrastructure.md` | eng-os-platform-infrastructure |
+| `meso/observability.md` | eng-os-observability |
+| `meso/prose-style.md` | eng-os-prose-style |
+| `meso/reliability.md` | eng-os-reliability-engineering |
+| `meso/security.md` | eng-os-security-practices |
+| `meso/system-design.md`, `micro/design-review-template.md`, `micro/templates/service-template.md` | eng-os-system-design |
+| `meso/team-practices.md` | eng-os-team-practices |
+| `meso/testing-strategy.md` | eng-os-testing-strategy |
+| `meta/agent-operations.md` | eng-os-model-optimization |
+| `meta/architecture.md`, `meta/claude-code-usage.md` | eng-os-bootstrap, eng-os-core, eng-os-execute-feature, eng-os-plan-app, eng-os-spec-feature, eng-os-audit |
+| `meta/document-authoring-guidelines.md` | eng-os-doc-authoring-rules |
+| `meta/glossary.md` | eng-os-core, eng-os-audit |
+| `micro/coding-standards/common.md`, `micro/project-structure.md` | eng-os-coding-standards-common, eng-os-bootstrap |
+| `micro/coding-standards/nodejs.md` | eng-os-coding-standards-nodejs |
+| `micro/coding-standards/python.md` | eng-os-coding-standards-python |
+
 ## [1.10.0] — 2026-11-21
 
 ### Added

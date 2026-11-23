@@ -1,6 +1,6 @@
 ---
 name: eng-os-team-practices
-description: "Use when doing code review or writing PR descriptions. For incident response, on-call, or tech-debt triage, see this skill's references/."
+description: "In a project governed by the Engineering OS, use when doing code review or writing PR descriptions. For incident response, on-call, or tech-debt triage, see this skill's references/."
 sources: [meso/team-practices.md]
 globs: ["**/*"]
 always_apply: false
@@ -18,6 +18,7 @@ incomplete; a review that is educational but misses a security flaw is dangerous
 ```
 minimum_reviewers:      1 for routine changes; 2 for architectural or security changes
 author_cannot_approve:  true (self-approval is not permitted)
+agent_authored:         approved by a registered human; an agent review is a comment, not an approval
 reviewer_selection:
     primary:    an engineer familiar with the affected domain
     secondary:  required for: schema changes, security-touching code,
@@ -27,6 +28,8 @@ response_sla:
     urgent:     within 2 hours (flag in PR description)
     blocking:   communicate blockage to author; do not let PRs sit silently
 ```
+
+A change authored by an agent is approved by a registered human. An agent never approves its own change or one authored by another agent in the same task or workflow; an agent review is recorded as a comment, not an approval.
 
 ## Review Comment Taxonomy
 
@@ -70,7 +73,7 @@ testability:  code structured to be tested in isolation? dependencies injectable
               from unit tests?
 
 standards:    meets micro/coding-standards/ for the language? naming consistent with
-              code-conventions skill? public functions have JSDoc-style docstrings?
+              code-conventions skill? public functions have docstrings per the language standard (JSDoc for TypeScript, Google style for Python)?
 
 contracts:    if a public API/event schema/data contract changed, is it versioned?
               is there an ADR for any significant design decision in this change?
@@ -101,8 +104,10 @@ Example: a filled-in PR description following the template above:
 Title: Add retry logic to payment service client
 
 ## What changed
-Wraps calls to the payment service client in an exponential-backoff retry (3 attempts,
-base delay 200ms). Retries only on the status codes in RETRYABLE_STATUS_CODES (502, 503, 504).
+Wraps calls to the payment service client in retry per `eng-os-coding-standards-common`
+Standard 5 (full jitter, cap, budget, `Retry-After`), retrying only the statuses that standard
+lists, kept in RETRYABLE_STATUS_CODES. Each charge carries the order's idempotency key, so a retry
+after an ambiguous timeout cannot charge the customer twice.
 
 ## Why
 Payment provider has intermittent 503s under load (see INCIDENT-2026-0512). Retrying
@@ -112,10 +117,11 @@ Ticket: PROJ-1821.
 ## How to verify
 1. `npm test -- payment-client.test.ts`: covers retry-then-succeed and retry-exhausted paths
 2. Manually: set `PAYMENT_MOCK_FAILURE_RATE=0.5` locally and run a checkout; confirm retries
-   appear in logs and the request eventually succeeds or fails cleanly after 3 attempts
+   appear in logs and the request eventually succeeds or fails cleanly once `PAYMENT_NUM_RETRIES`
+   (default 2) retries are spent; replay one charge and confirm the provider records one payment
 
 ## Notes
-Does not retry on 4xx (client errors are not transient). Follow-up: add a circuit breaker
+Errors that Standard 5 marks non-retryable surface immediately. Follow-up: add a circuit breaker
 if 503 rate stays elevated; tracked in PROJ-1830, not part of this PR.
 ```
 
@@ -160,7 +166,7 @@ requesting formal review; don't leave a draft open longer than one sprint withou
 ## Failure Modes
 
 - Review comments with no label, so the author cannot tell what blocks the merge (Review Comment Taxonomy).
-- Self-approval, or one reviewer on a schema, security, AI-IDS, or public API change (Reviewer Assignment).
+- Self-approval, an agent approving an agent's change, or one reviewer on a schema, security, AI-IDS, or public API change (Reviewer Assignment).
 - A PR description with no why or how-to-verify, which makes the reviewer reconstruct intent from the diff.
 - A PR past 800 lines of logic with no justification: it gets shallower review and is harder to revert.
 - A PR waiting silently past its response SLA instead of the blockage being communicated to the author.
@@ -169,14 +175,22 @@ requesting formal review; don't leave a draft open longer than one sprint withou
 
 **PR, before requesting review:**
 ```
+
+### Per change
+
 - [ ] CI passes (lint, tests, build)
 - [ ] PR description is complete (what, why, how to verify)
 - [ ] self-review completed: read the diff as if you are the reviewer
 - [ ] no debugging artifacts (print statements, commented-out code, TODO/FIXME)
-- [ ] ADR created if this PR contains a significant architectural decision
-```
+- [ ] ADR created if this PR contains a decision meeting the ADR threshold (`eng-os-documentation-standards`)
+- [ ] an agent-authored change is approved by a registered human; no agent approved its own change or another agent's
 
-**Team practices in place when:**
+### Standing (release and audit)
+
 - [ ] Code review criteria are written down and labeling conventions are used on every review
 - [ ] PRs consistently include what/why/how-to-verify
 - [ ] (see references/ for incident, on-call, and tech-debt DoD items)
+
+```
+
+**Team practices in place when:**

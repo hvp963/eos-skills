@@ -1,6 +1,6 @@
 ---
 name: eng-os-execute-feature
-description: "Use once scope is approved and before implementation starts: either the `.specs/<feature>/tasks.md` ledger from eng-os-spec-feature, or a small feature request on an already-bootstrapped project that needs no spec. Adopts the spec's task list when one exists, otherwise breaks the scope into an ordered task list, each task with its own Definition of Done and commit, and requires a pass/fail verify gate before the next task starts. Governs the sequencing of a build; eng-os-core's checkpoint table governs what standard each task must meet while it runs."
+description: "In a project governed by the Engineering OS, use once scope is approved and before implementation starts: either the `.specs/<feature>/tasks.md` ledger from eng-os-spec-feature, or a small feature request on an already-bootstrapped project that needs no spec. Adopts the spec's task list when one exists, otherwise breaks the scope into an ordered task list, each task with its own Definition of Done and record (a commit where the project uses version control), and requires a pass/fail verify gate before the next task starts. Governs the sequencing of a build; eng-os-core's checkpoint table governs what standard each task must meet while it runs."
 sources:
   - meta/mental-model.md
   - meta/claude-code-usage.md
@@ -78,7 +78,8 @@ eligible to run next; among eligible tasks, prefer the one that most reduces ris
 for the tasks behind it (e.g. the schema task before the endpoint task that reads it). Present
 the ordered list back for confirmation before executing the first task: this is a cheap point to
 catch a wrong decomposition, before any code exists to reflect it. An adopted spec's task list
-was already approved at its own gate; confirm only the order and any change made since.
+was approved, or is listed as awaiting approval, in the spec; confirm only the order and any
+change since.
 
 ### Parallel Lanes
 
@@ -89,6 +90,11 @@ commit, and a task that depends on a lane's output waits for that lane's Verify,
 Merge order follows dependency order. Serial execution is the choice to justify ("task 4 reads
 the schema task 2 creates"), not the default. Lanes record their own events, each appending its own
 lines to `events.jsonl` and never rewriting an earlier one.
+
+A lane allocates nothing from a project-wide sequence. A message it adds carries a placeholder code
+(`CST??????`), and codes are assigned in merge order by the merging task, which also advances the
+counter in CLAUDE.md. When lanes merge, every event line is kept; status is read by `ts`, not by
+line order.
 
 ## Phase 3 — Execute One Task
 
@@ -126,15 +132,17 @@ Before a task is considered complete:
   with a known-failing verify gate and plan to "come back to it": that is exactly how partial,
   half-working feature branches accumulate.
 
-## Phase 5 — Commit
+## Phase 5 — Record
 
-One commit per completed, verified task, not one commit for the whole feature, and not
-multiple commits within a single task. This keeps `git bisect` meaningful (a bisect lands on one
-task's change, not a tangle of several) and gives the task list a durable audit trail: task list
-order should read as commit-log order when the feature is done. The commit message names the
-task, not the whole feature. With a spec, append a `done` line for the task first, so the
-commit holds the code together with the updated `events.jsonl`, and the log always shows which
-tasks have landed.
+Append the task's `done` line (with a spec), then record the task. Nothing in this skill depends
+on version control: where the project uses it and the agent may commit, make one commit per
+verified task, containing the code and the updated `events.jsonl`; otherwise the `done` event and
+the task summary are the record.
+
+With commits, make one per completed, verified task, not one for the whole feature and not several
+within a task. This keeps `git bisect` meaningful (a bisect lands on one task's change, not a
+tangle of several), and the task list order reads as commit-log order when the feature is done.
+The commit message names the task, not the whole feature.
 
 Return to Phase 3 for the next eligible task. Repeat until the task list is exhausted.
 
@@ -142,8 +150,7 @@ Return to Phase 3 for the next eligible task. Repeat until the task list is exha
 
 Once every task is complete, verify the feature as a whole, not just its parts: the vertical
 slices compose correctly together, and the original approved scope (the Product Brief phase or
-feature request that started this skill) is now satisfied; not just that every
-individual task's narrow DoD passed in isolation. With a spec, run the tests for every active
+feature request that started this skill) is now satisfied. With a spec, run the tests for every active
 scenario of the feature together, including the scenarios that span several tasks. Then walk every
 active requirement in `requirements.md` and record each one whose scenarios all passed with a
 `verified` line, naming the tests that proved it; a requirement with no passing scenario is a gap
@@ -165,8 +172,9 @@ in the same PR (the rule in `eng-os-documentation-standards`):
 | `.specs/<feature>/` | Phase 6 or a later change left a requirement, a design row, or a task out of step with the code (change the rows as `eng-os-spec-feature` describes, then walk the check list) |
 | CHANGELOG or release notes | Changed anything a user or integrator can see |
 
-Record the result as one line per row in the final commit or PR description: updated, or "no
-change" with the reason. A row with neither is an unfinished task.
+Record the result as one line per row in the final commit or PR description, or in the feature
+summary where there is neither: updated, or "no change" with the reason. A row with neither is an
+unfinished task.
 
 ## When Not to Use the Full Loop
 
@@ -179,7 +187,7 @@ its own bail-out check; do not force ceremony onto work that does not carry real
 ## Definition of Done
 
 Feature execution is complete when: every task from Phase 1 has a passing Definition of Done and
-a corresponding commit; the Meta Definition of Done passed for every checkpoint-table skill any
+a record (its `done` event and summary, and its commit where the project uses version control); the Meta Definition of Done passed for every checkpoint-table skill any
 task invoked; the Phase 6 feature-level verify passed against the original approved scope (with a
 spec, every active scenario's test passed and every active requirement is recorded as verified); no task
 was left in a partially-verified state when work stopped; with a spec, the log shows every active

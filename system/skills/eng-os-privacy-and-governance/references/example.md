@@ -14,7 +14,9 @@ Fields:
   phone          text          Confidential  delivery contact; field-level encrypted (Restricted in EU markets)
   created_at     timestamptz   Internal
 Retention:       account lifetime + 30 days; legal hold overrides
-Deletion:        procedure docs/runbooks/erase-customer.md (see below)
+Deletion:        anonymize in place (email, full_name, phone replaced; customer_id kept), because
+                 orders keep a 7-year tax retention floor and reference customer_id;
+                 procedure docs/runbooks/erase-customer.md (see below)
 Lineage:         source of customers_dim (warehouse, daily, run_id stamped), recs_features (pseudonymized)
 Third parties:   email provider (email, full_name; DPA on file); none to AI models
 ```
@@ -27,7 +29,7 @@ retention of forever. It was found during the first lineage query.
 
 | Step | Store | Action | Verify |
 |---|---|---|---|
-| 1 | Postgres primary | delete `customers` row and cascade-scoped children; write audit event `PRV000012` | row absent on primary and replica |
+| 1 | Postgres primary | anonymize the `customers` row in place: email, full_name, and phone replaced (email becomes `erased-<id>@invalid`), `id` kept so `orders` keep their FK; orders retained for the 7-year tax floor carry no direct identifier; write audit event `PRV000012` | no direct identifier on primary or replica; `orders` rows intact |
 | 2 | Redis cache | delete `customer:{id}` and `session:*` for the id | key count 0 |
 | 3 | Warehouse | delete from `customers_dim` by `customer_id`; `recs_features` keeps pseudonymous rows (no direct identifier) | query returns 0 rows |
 | 4 | Search index | delete document | 404 on fetch |

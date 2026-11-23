@@ -1,6 +1,6 @@
 ---
 name: eng-os-plan-app
-description: "Use at the very start of a new app or major feature, before any code is written or CLAUDE.md is created. Turns a one-paragraph idea into a Product Brief covering entities, screens, phased scope, and terminology. Feeds directly into the eng-os-bootstrap skill."
+description: "For a project to be governed by the Engineering OS, use at the very start of a new app or major feature, before any code is written or CLAUDE.md is created. Turns a one-paragraph idea into a Product Brief covering entities, screens, phased scope, and terminology. Feeds directly into the eng-os-bootstrap skill."
 sources:
   - meta/claude-code-usage.md
 globs: ["**/*"]
@@ -72,7 +72,7 @@ Enumerate every screen/page before any UI code exists. For each screen capture:
 - **Primary user action**: the one thing this screen exists for the user to do
 
 If a screen doesn't map to at least one entity and one clear action, question whether it's
-actually needed or is scope creep.
+needed or is scope creep.
 
 ## Phase 4 — Terminology Lock
 
@@ -82,9 +82,11 @@ guess: once locked, the team commits to not renaming opportunistically mid-build
 
 - Write each term down alongside any rejected alternatives, so the reasoning is preserved and
   a repeat debate doesn't resurface the same alternative later.
-- If a rename is later found to be genuinely necessary, it must be executed as one deliberate,
-  complete pass across the whole codebase in a single change, never as incremental drift where
-  old and new names coexist.
+- If a rename is later found to be genuinely necessary, an internal identifier, column, or UI
+  term is renamed in one complete change (code, UI, docs, tests together), never as incremental
+  drift where old and new names coexist. A deprecation window with an alias applies only to a
+  public contract other systems consume (API field, event, shared column), follows
+  `eng-os-api-design` Versioning Migration, and ends on a declared date.
 - Flag any term that is a close synonym of a term used in a sibling app in the suite (e.g.
   "asset" vs. "entity" vs. "record") and resolve the ambiguity now.
 

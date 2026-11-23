@@ -15,27 +15,36 @@ express *design decisions*, not implementation details.
 
 ```css
 --primary:        #7c3aed;   /* primary action, focus rings, active states */
---primary-light:  #8b5cf6;   /* hover state for primary elements */
---primary-glow:   rgba(124,58,237,0.10);  /* tinted backgrounds, badge fills */
+--primary-hover:  #6d28d9;   /* hover state for primary fills; white on it is 7.10:1 */
+--primary-text:   #6d28d9;   /* primary-hued text on a tint (badges): 5.56:1 on primary-glow over --bg */
+--primary-light:  #8b5cf6;   /* non-text accents only; white on it is 4.23:1, below 4.5:1 */
+--primary-glow:   rgba(124,58,237,0.10);  /* tinted backgrounds, badge fills, input focus halo */
+--on-primary:     #ffffff;   /* text and icons on primary fills (5.70:1) */
 ```
 
 ### 1.2 Color — Semantic
 
-Semantic colors carry meaning. Use them consistently: amber always means caution, red always
-means error or required action, green always means success or value. Mixing them destroys the
-vocabulary.
+Semantic colors carry meaning. Use them consistently: amber always means caution, red always means error or required action, green always means success or value. Mixing them destroys the vocabulary.
+
+Each hue has two roles. The base hue is for fills, borders, icons, and callout bars, where 3:1 against the background is enough (non-text contrast). Text in that hue uses its `-text` token, which reaches 4.5:1 on white, on `--bg`, and on its own tint (1.9).
 
 ```css
---green:       #059669;
---green-soft:  rgba(5,150,105,0.08);    /* tip callouts, value lists */
+--green:        #059669;                 /* fills, borders, bars */
+--green-text:   #047857;                 /* green text: 4.52:1 on green-soft over --bg */
+--green-soft:   rgba(5,150,105,0.08);    /* tip callouts, value lists */
+--green-border: rgba(5,150,105,0.2);     /* border of a green-soft surface */
 
---amber:       #d97706;
---amber-soft:  rgba(217,119,6,0.08);    /* warnings, behavioral changes */
+--amber:        #d97706;
+--amber-text:   #92400e;                 /* amber text: 5.92:1 on amber-soft over --bg */
+--amber-soft:   rgba(217,119,6,0.08);    /* warnings, behavioral changes */
 
---red:         #dc2626;
---red-soft:    rgba(220,38,38,0.06);    /* errors, breaking changes */
+--red:          #dc2626;
+--red-text:     #b91c1c;                 /* red text: 5.37:1 on red-soft over --bg */
+--red-soft:     rgba(220,38,38,0.06);    /* errors, breaking changes */
 
---cyan:        #0891b2;                 /* informational, secondary accent */
+--cyan:         #0891b2;                 /* informational, secondary accent (fills only: 3.68:1 on white) */
+--cyan-text:    #155e75;                 /* cyan text: 7.27:1 on white, 6.01:1 on cyan-glow over --bg */
+--cyan-glow:    rgba(8,145,178,0.08);    /* informational tint */
 ```
 
 ### 1.3 Color — Surface
@@ -54,8 +63,8 @@ makes cards readable.
 
 ```css
 --text:       #0f172a;  /* primary body — near-black, high contrast */
---text-muted: #64748b;  /* secondary — labels, metadata, supporting copy */
---text-dim:   #94a3b8;  /* tertiary — disabled, placeholder, decorative */
+--text-muted: #475569;  /* secondary: labels, metadata, placeholders, supporting copy (7.58:1 on white, 6.86:1 on --bg) */
+--text-dim:   #94a3b8;  /* disabled and decorative only (WCAG exempts disabled controls); never body text or placeholders */
 ```
 
 ### 1.5 Color — Border
@@ -92,6 +101,23 @@ font-family: 'Google Sans Flex', 'Inter', system-ui, sans-serif;
 | md | `8px` | Callouts, inner tables |
 | lg | `10–12px` | Cards, panels, containers — **preferred default** |
 | full | `99px` | Pills, tags, avatar rings |
+
+### 1.9 Contrast
+
+Every text token reaches 4.5:1 on the surfaces it is used on. Ratios use the WCAG 2.x relative-luminance formula, with tints blended at their declared alpha and rounded to 8-bit colour, as a browser renders them. A tint is translucent, so it is measured over both surfaces it sits on: a card (white) and the page (`--bg`). A value change re-runs this table, and the accessibility check, before it ships.
+
+| Text token | Value | On white | On `--bg` | On `--surface-3` | On its tint over white | On its tint over `--bg` |
+|---|---|---:|---:|---:|---:|---:|
+| `--text` | `#0f172a` | 17.85 | 16.16 | 16.30 | n/a | n/a |
+| `--text-muted` | `#475569` | 7.58 | 6.86 | 6.92 | n/a | n/a |
+| `--primary` | `#7c3aed` | 5.70 | 5.16 | 5.20 | n/a | n/a |
+| `--primary-text` | `#6d28d9` | 7.10 | 6.43 | 6.49 | 6.12 | 5.56 |
+| `--green-text` | `#047857` | 5.48 | 4.97 | 5.01 | 5.00 | 4.52 |
+| `--amber-text` | `#92400e` | 7.09 | 6.42 | 6.47 | 6.51 | 5.92 |
+| `--red-text` | `#b91c1c` | 6.47 | 5.86 | 5.91 | 5.90 | 5.37 |
+| `--cyan-text` | `#155e75` | 7.27 | 6.58 | 6.63 | 6.60 | 6.01 |
+
+Fill pairs: `--on-primary` on `--primary` is 5.70, and on `--primary-hover` 7.10. The focus ring (`--primary`) is 5.70 on white and 5.16 on `--bg`, above the 3:1 required for UI components. `--text-dim` (2.56 on white) passes nothing and is used only where WCAG exempts it: disabled controls and decoration.
 
 ---
 
@@ -132,8 +158,12 @@ box-shadow: var(--shadow-sm);
 /* hover */
 border-color: var(--border-bright);
 box-shadow: var(--shadow-md);
-transform: translateY(-1px);
-transition: all 0.15s;
+
+/* motion only when the user has not asked to reduce it (3.9) */
+@media (prefers-reduced-motion: no-preference) {
+  transform: translateY(-1px);
+  transition: box-shadow 0.15s, border-color 0.15s, transform 0.15s;
+}
 ```
 
 **Use cards for:** numbered items, feature descriptions, decisions, breaking change details,
@@ -157,10 +187,10 @@ text-transform: uppercase;
 letter-spacing: 0.04–0.06em;
 
 /* semantic variants */
-.badge-improved { background: var(--primary-glow); color: var(--primary); }
-.badge-new      { background: var(--green-soft);   color: var(--green); }
-.badge-behavior { background: var(--amber-soft);   color: var(--amber); }
-.badge-breaking { background: var(--red-soft);     color: var(--red); }
+.badge-improved { background: var(--primary-glow); color: var(--primary-text); }
+.badge-new      { background: var(--green-soft);   color: var(--green-text); }
+.badge-behavior { background: var(--amber-soft);   color: var(--amber-text); }
+.badge-breaking { background: var(--red-soft);     color: var(--red-text); }
 .badge-fixed    { background: var(--surface-3);    color: var(--text-muted); border: 1px solid var(--border); }
 ```
 
@@ -205,7 +235,7 @@ box-shadow: var(--shadow-sm);
 **Inline tip / note**:
 ```css
 background: var(--green-soft);
-border: 1px solid rgba(5,150,105,0.2);
+border: 1px solid var(--green-border);
 border-radius: 10px;
 padding: 13px 16px;
 /* include a leading icon glyph for scannability */

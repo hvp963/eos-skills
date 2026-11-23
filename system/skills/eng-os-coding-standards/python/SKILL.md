@@ -15,22 +15,25 @@ alongside this one; read both, this file does not restate the "why."
 
 ## 1. Execution Mode
 
+`EXECUTION_MODE` is read once, in `src/config/env.py`, and imported everywhere else. It is required:
+startup fails if it is unset or not one of `dev`, `stage`, `prod`, with no fallback mode. The
+log-level map lives beside it.
+
 ```python
-import os
-
-# Read once at module load; never re-read at call sites
-EXECUTION_MODE = os.getenv("EXECUTION_MODE", "dev")
-
-LOG_LEVEL_MAP = {"dev": "DEBUG", "stage": "INFO", "prod": "WARN"}
-LOG_LEVEL = LOG_LEVEL_MAP.get(EXECUTION_MODE, "DEBUG")
+# src/config/env.py
+EXECUTION_MODE = os.environ.get("EXECUTION_MODE", "")
+if EXECUTION_MODE not in ("dev", "stage", "prod"):
+    raise EnvironmentError(f"EXECUTION_MODE must be one of dev, stage, prod; got {EXECUTION_MODE!r}")
+LOG_LEVEL = {"dev": "DEBUG", "stage": "INFO", "prod": "WARN"}[EXECUTION_MODE]
 ```
 
 ## 2. Configuration Module
 
 Create `src/config/env.py`. Load once at startup.
+- `load_dotenv()` loads `.env` when the file exists; it never overrides a variable already set, so in stage and prod the real environment wins; `.env` is never part of the build artifact
 - required values: read via `os.environ["KEY"]` (raises `KeyError` if missing); never `os.getenv` for required values
 - optional values: `os.getenv("KEY", "default")` with an explicit default
-- retry counts: configurable per area, e.g. `API_NUM_RETRIES`, `DB_NUM_RETRIES`
+- retry counts: configurable per area, e.g. `API_NUM_RETRIES`, `DB_NUM_RETRIES`, each counting the retries after the first call (default 2); the retry timing values are constants in `src/shared/constants/`
 - use `pydantic BaseSettings` as an alternative when schema validation on config is required
 
 ## 3. Secrets
@@ -48,21 +51,22 @@ Create `src/config/env.py`. Load once at startup.
 
 ## 5. Retry with Exponential Backoff
 
-Use `tenacity` (`wait_random_exponential` for full jitter, `stop_after_attempt | stop_after_delay` for the budget) or a lightweight utility respecting `RETRY_BASE_MS`, `RETRY_CAP_MS`, `RETRY_BUDGET_MS` from `src/config/env.py`. Only retry a defined tuple of retryable exception types; non-retryable exceptions re-raise immediately without consuming a retry attempt.
+The rule is `eng-os-coding-standards-common` Standard 5. Use the one loop in canon §5 (`call_with_retry` in `src/shared/retry/retry.py`): at most `num_retries + 1` calls, full jitter `random.uniform(0, min(RETRY_CAP_MS, RETRY_BASE_MS * 2 ** attempt))`, a wait of the larger of that delay and the error's `retry_after_ms`, and a stop when the wait would pass `RETRY_BUDGET_MS` or the caller's deadline. `RETRY_BASE_MS`, `RETRY_CAP_MS`, and `RETRY_BUDGET_MS` are constants (`src/shared/constants/`). Only retry the defined tuple of retryable exception types (`ServiceUnavailableError`, `ConnectionError`, `TimeoutError`); non-retryable exceptions re-raise immediately without consuming a retry. `tenacity` is not used: its wait cannot honor `Retry-After`. A vendor SDK with built-in retry owns its calls: set its retry count from config and do not wrap them.
 
 ## 6. Structured Logging
 
 - use `structlog` (preferred) or stdlib `logging` with a JSON formatter, configured once at startup
-- always include context identifiers on each call: `log.info("processing started", trace_id=trace_id, record_id=record_id)`
-- bind `trace_id` once at the entry point in a `contextvars.ContextVar` and add it through a structlog processor, so no function threads it through its signature; it follows `asyncio` tasks and executors
+- at the entry point, extract the caller's context with the OpenTelemetry propagator (`propagate.extract`, W3C `traceparent`), start a span, and bind `trace_id` and `span_id` once with `structlog.contextvars.bind_contextvars`; the built-in `structlog.contextvars.merge_contextvars` processor adds them to every line, so no function threads them through its signature, and they follow `asyncio` tasks and executors
+- call sites pass only the operation's identifiers: `log.info("processing started", record_id=record_id)`; never `trace_id=` at a call site
+- outbound calls write `traceparent` with `propagate.inject`; `X-Trace-Id` is never emitted
 - for pipeline/AI-adjacent jobs, set up file logging per the `logs/{prefix}_{plan,reasoning,execution}_{timestamp}.log` convention from the common skill
 
 ## 7. Type Annotations
 
 All function signatures must include type hints, including return types.
 ```python
-def process_record(record_id: str, retries: int = 3) -> dict: ...
-def find_user(user_id: str) -> Optional[dict]: ...
+def process_record(record_id: str) -> ProcessedRecord: ...
+def find_user(user_id: str) -> Optional[User]: ...
 ```
 `Any` is a code smell; use only with a comment explaining why a more specific type isn't possible. Never leave a signature unannotated.
 
@@ -122,10 +126,12 @@ direction are defined there; this section adds only the Python specifics.
 
 ## Definition of Done
 
-- [ ] `src/config/env.py` exists and all env vars are read there
-- [ ] required secrets raise `EnvironmentError` at startup if missing
+All items are Per change: this domain has no Standing (release and audit) items.
+
+- [ ] `src/config/env.py` exists and all env vars are read there, `EXECUTION_MODE` included
+- [ ] required values raise `EnvironmentError` at startup if missing; an unset or invalid `EXECUTION_MODE` fails startup, with no fallback mode
 - [ ] all external calls use try/catch with specific exception types
-- [ ] retry logic is applied to transient calls
+- [ ] retry follows `eng-os-coding-standards-common` Standard 5 (full jitter, cap, budget, `Retry-After`, one owning layer)
 - [ ] all logs use structlog or JSON formatter and exclude secrets
 - [ ] all public functions have type annotations
 - [ ] tests use `pytest` with mocked external dependencies

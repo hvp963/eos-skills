@@ -63,7 +63,7 @@ See `meta/architecture.md` for a visual diagram of the full layer structure, and
 - `data-governance.md`: data classification, personal data, retention and deletion, lineage, access review
 
 ### Implementation Standards (`micro/`)
-- `project-structure.md`: canonical folder layout, source module organization, `ids/`/`lib/`/`input/`/`output/`/`logs/`/`docs/`/`tests/`, OOP module conventions, naming
+- `project-structure.md`: canonical folder layout, source module organization, `ids/`/`input/`/`output/`/`logs/`/`docs/`/`tests/`, OOP module conventions, naming
 - `coding-standards/common.md`: language-agnostic rules: config, user-facing string/message-code constants, error handling, retry, logging, testing, security, documentation, capability-based MVCS layering
 - `coding-standards/python.md`: Python implementation: config, error handling, retry, logging, type annotations, testing, docstrings, OOP conventions
 - `coding-standards/nodejs.md`: Node.js/TypeScript implementation of common standards including JSDoc

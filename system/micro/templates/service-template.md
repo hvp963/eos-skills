@@ -25,12 +25,14 @@ Starter checklist for designing or implementing a service.
 - response contract defined
 - error contract defined
 - versioning strategy defined where needed
+- authorization rule declared per endpoint (principal, scope, action)
 
 ### Reliability
 - retry behavior defined
 - idempotency addressed
 - timeouts defined
 - fault isolation considered
+- SLO and error budget declared for each user-facing capability
 
 ### Performance
 - expected latency target identified

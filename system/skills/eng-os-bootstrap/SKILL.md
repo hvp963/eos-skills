@@ -1,6 +1,6 @@
 ---
 name: eng-os-bootstrap
-description: "Use once at the start of a new project (or when governance is being retrofitted onto an existing one) to scaffold CLAUDE.md, record Scale Targets, and declare which Engineering OS skills apply to this project."
+description: "For a project to be governed by the Engineering OS, use once at the start of a new project (or when governance is being retrofitted onto an existing one) to scaffold CLAUDE.md, record Scale Targets, and declare which Engineering OS skills apply to this project."
 sources:
   - meta/architecture.md
   - micro/project-structure.md
@@ -37,8 +37,11 @@ produces a CLAUDE.md nobody can audit against. Instead:
 3. **Select the exact set of domain skills that apply**, not all of them. A Node.js API with
    Postgres, a React UI, and user accounts implies `eng-os-api-design`, `eng-os-database-design`,
    `eng-os-reliability-engineering`, `eng-os-security-practices`, `eng-os-privacy-and-governance`, `eng-os-testing-strategy`,
-   `eng-os-coding-standards-nodejs`, `eng-os-design-system`. A pure ETL pipeline implies `eng-os-database-design`,
-   `eng-os-data-strategy`, `eng-os-observability`, `eng-os-testing-strategy`, `eng-os-coding-standards-python`, and skips
+   `eng-os-observability`, `eng-os-coding-standards-common`, `eng-os-coding-standards-nodejs`, `eng-os-design-system`.
+   Every project that writes code lists `eng-os-coding-standards-common` with its language skill, and every
+   project with logs lists `eng-os-observability`. A pure ETL pipeline implies `eng-os-database-design`,
+   `eng-os-data-strategy`, `eng-os-observability`, `eng-os-testing-strategy`, `eng-os-coding-standards-common`,
+   `eng-os-coding-standards-python`, and skips
    `eng-os-design-system` and `eng-os-api-design` if there is no UI or public API. Add
    `eng-os-platform-infrastructure` when the project owns infrastructure code or runs in more than one
    region.
@@ -81,7 +84,7 @@ answer; a path, folder, or component name is.
 
 | Practice | Required concrete answer |
 |---|---|
-| No hardcoding; constants sectioned by area | The constants module path(s) and the first area section (e.g. `src/constants/customer.ts` with `CUSTOMER_LABELS`, `CUSTOMER_MESSAGES`) |
+| No hardcoding; constants sectioned by area | The constants module path(s) and the first area section (e.g. `src/shared/constants/customers.ts` with `CUSTOMERS_LABELS`, `CUSTOMERS_MESSAGES`) |
 | All user-facing strings are constants | Confirmation that no literal label/message/heading appears inline in a component, plus the exception list (test names, log messages, comments) |
 | Message code prefix, single project-wide sequence | The `## Message Area Codes` table with the areas known now, each with its 3-letter code, and the shared counter's start (`000001` for a new project) |
 | Capabilities and the five layers | The capability list known now, each with its five folders (`controllers/`, `services/`, `repositories/`, `models/`, `views/`) under `src/capabilities/<capability>/`, plus `workflows/` and `shared/` |

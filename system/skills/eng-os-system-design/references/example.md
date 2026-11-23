@@ -37,8 +37,10 @@ it internal plumbing that belongs inside an existing container?).
 fails the "explicit ownership + fault isolation" principles: approvals and expenses are the same
 transaction boundary (approving an expense mutates the expense's state), so splitting them forces a
 distributed transaction or a saga for what is fundamentally one atomic write. That's a design
-smell this skill's UX/IA section calls out directly: reaching for a distributed transaction across
-services when one database would do is itself the mistake, not a sign you need a saga.
+smell that `eng-os-design-system` (UX and Information Architecture, atomic multi-entity saves) and
+`eng-os-database-design` (Transactions and Consistency) call out directly: reaching for a
+distributed transaction across services when one database would do is itself the mistake, not a
+sign you need a saga.
 
 **Better boundary, derived from the actual coupling:**
 

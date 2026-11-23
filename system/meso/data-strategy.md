@@ -63,17 +63,6 @@ Using only one mode for all problems causes either excessive latency or excessiv
 
 ---
 
-### Schema Versioning
-Treat schema evolution as a first-class concern.
-
-#### Why
-Uncontrolled changes break downstream consumers and corrupt historical interpretation.
-
-#### Failure Mode
-Schema drift causes pipeline failures or silent misinterpretation.
-
----
-
 ### De-duplication at Multiple Boundaries
 Deduplicate where duplicates are likely to emerge.
 
@@ -98,35 +87,44 @@ Cached stale data silently undermines trust if invalidation is weak.
 
 ### Idempotent Write
 
-Upsert by stable natural key. On match, merge or skip. On replay, produce the same result.
+The natural key has a unique constraint. The write is one atomic statement: insert, or update only when the incoming version is newer; an older or equal replay changes nothing. Use the engine's upsert (`INSERT ... ON CONFLICT ... DO UPDATE ... WHERE` in PostgreSQL and SQLite, `MERGE` in warehouses). Never read-then-write.
 
+```sql
+-- records.external_id carries a UNIQUE constraint
+INSERT INTO records (external_id, status, amount_cents, updated_at)
+VALUES (:external_id, :status, :amount_cents, :updated_at)
+ON CONFLICT (external_id) DO UPDATE
+    SET status       = EXCLUDED.status,
+        amount_cents = EXCLUDED.amount_cents,
+        updated_at   = EXCLUDED.updated_at
+    WHERE records.updated_at < EXCLUDED.updated_at;   -- older or equal replay is a no-op
 ```
-function writeRecord(record):
-    existing = db.findByKey(natural_key=record.external_id)
 
-    if existing is null:
-        db.insert(record)
-        log.info("record inserted", id=record.external_id)
-
-    elif existing.updated_at >= record.updated_at:
-        log.info("record skipped — not newer", id=record.external_id)
-        return  // idempotent: replay of older or equal data is a no-op
-
-    else:
-        db.update(id=existing.id, fields=record.diffFrom(existing))
-        log.info("record updated", id=record.external_id)
+```sql
+-- warehouse MERGE: deduplicate the batch to the latest version per key first,
+-- because MERGE rejects a source with more than one row per key
+MERGE INTO fact_records AS target
+USING (latest version per external_id from the batch) AS source
+ON target.external_id = source.external_id
+WHEN MATCHED AND (target.updated_at IS NULL OR source.updated_at > target.updated_at) THEN
+    UPDATE SET status = source.status, amount_cents = source.amount_cents, updated_at = source.updated_at
+WHEN NOT MATCHED THEN
+    INSERT (external_id, status, amount_cents, updated_at)
+    VALUES (source.external_id, source.status, source.amount_cents, source.updated_at);
 ```
+
+Compare on `updated_at`, or on a source sequence number when source timestamps are not monotonic; a missing target version counts as older.
 
 The natural key must be stable and sourced from the upstream system, not a database-generated ID assigned at write time. If the upstream system has no natural key, derive one deterministically (e.g., hash of source + record identifiers).
 
 #### Failure Mode
-Writing without a uniqueness check on replay inserts duplicates on every rerun. Using an auto-increment primary key as the deduplication key means every insert is treated as new.
+Writing without a uniqueness constraint inserts duplicates on every rerun. Using an auto-increment primary key as the deduplication key means every insert is treated as new. A read-then-write upsert races under concurrent replay: two writers both see no row and both insert. An unguarded `MERGE` (`WHEN MATCHED THEN UPDATE` with no version check) regresses newer rows to older values on a backfill.
 
 ---
 
 ### Schema Evolution
 
-Treat schema changes as additive first. Breaking changes require a version bump and a migration script. Consumers must validate the version they receive.
+Treat schema changes as additive first. Breaking changes require a version bump and a migration script. Consumers must validate the version they receive. Uncontrolled changes break downstream consumers and corrupt the interpretation of historical data.
 
 ```
 // additive change — safe; no version bump
@@ -205,7 +203,7 @@ A pipeline that fails silently continues to serve its last successful output as 
 
 ### UI/Consumer-Facing Freshness
 
-A freshness SLA that stops at a backend metric has not actually reached the consumer. Where a field or dataset has a declared freshness SLA, the staleness signal must travel with the data all the way to the point where it is rendered or consumed, instead of staying buried in a pipeline dashboard.
+A freshness SLA that stops at a backend metric has not reached the consumer. Where a field or dataset has a declared freshness SLA, the staleness signal must travel with the data all the way to the point where it is rendered or consumed, instead of staying buried in a pipeline dashboard.
 
 This rule applies only to fields and datasets with a declared freshness SLA. It is not a blanket requirement to badge every value in every UI; data with no declared SLA is out of scope until an SLA is defined for it.
 
@@ -311,6 +309,8 @@ Failure to define quality criteria leads to systems that "run" but cannot be tru
 - weak partitioning creates scale limits
 - missing lineage obscures source of corruption
 - replay without idempotency compounds bad outputs
+- a read-then-write upsert races under concurrent replay and inserts duplicates or fails on the unique constraint
+- an unguarded `MERGE` regresses newer rows to older values on a backfill
 - poor freshness controls make downstream decisions stale
 - a freshness badge omitted from the consuming UI makes staleness invisible to the end user
 - treating canonical/shadow divergence flags as a substitute for real reconciliation lets drift accumulate unresolved
@@ -322,15 +322,21 @@ Failure to define quality criteria leads to systems that "run" but cannot be tru
 ## Definition of Done
 
 Data strategy is complete when:
+
+### Per change
+
 - producer and consumer contracts are explicit
 - partitioning strategy is defined
-- idempotency and de-duplication are addressed
+- idempotency and de-duplication are addressed: the natural key has a unique constraint, and the write is one atomic upsert that leaves a row unchanged on an older or equal replay
 - batch versus streaming choices are justified
 - quality checks are defined
-- freshness expectations are explicit
 - for any field or dataset with a declared freshness SLA, every UI or API response rendering it (including fused data) surfaces a freshness/staleness indicator at the point of consumption
 - canonical/shadow divergence tracking, where used, is documented as a lightweight signal and not mistaken for full MDM reconciliation
 - reprocessing and replay implications are understood
 - every time-windowed computation declares its watermark, its late-data handling, and whether outputs are provisional or final
 - every pipeline boundary declares its delivery guarantee, and consumers are idempotent under at-least-once delivery
 - retention, lineage, and classification of each dataset are declared per `meso/data-governance.md`
+
+### Standing (release and audit)
+
+- freshness expectations are explicit

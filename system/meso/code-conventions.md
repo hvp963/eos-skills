@@ -73,17 +73,17 @@ Mixed casing within a file signals undeclared conventions and creates ambiguity 
 
 Rule: UPPER_SNAKE_CASE in all languages
 
-- Python:     `RETRY_MAX_ATTEMPTS`, `AI_MODEL`, `DEFAULT_TIMEOUT_SECS`
-- TypeScript: `RETRY_MAX_ATTEMPTS`, `AI_MODEL`, `DEFAULT_TIMEOUT_SECS`
+- Python:     `RETRY_BASE_MS`, `AI_MODEL`, `DEFAULT_TIMEOUT_SECS`
+- TypeScript: `RETRY_BASE_MS`, `AI_MODEL`, `DEFAULT_TIMEOUT_SECS`
 
 #### Example
 ```python
-RETRY_MAX_ATTEMPTS = int(os.getenv("RETRY_MAX_ATTEMPTS", "5"))
+RETRY_BASE_MS = 100            # a constant: fixed per release, never read from the environment
 DEFAULT_TIMEOUT_SECS = 30.0
 AI_MODEL = "model-family-version"
 ```
 ```typescript
-const RETRY_MAX_ATTEMPTS: number = parseInt(process.env.RETRY_MAX_ATTEMPTS ?? "5");
+const RETRY_BASE_MS = 100;
 const DEFAULT_TIMEOUT_SECS = 30.0;
 ```
 
@@ -126,7 +126,7 @@ Applies equally in all languages because environment variables are OS-level.
 - `AI_MODEL`, `AI_TEMPERATURE`, `AI_TIMEOUT_SECS`
 - `IMAGE_API_KEY`, `IMAGE_API_SECRET`
 - `SEARCH_API_KEY`
-- `RETRY_MAX_ATTEMPTS`, `RETRY_BASE_DELAY_SECS`
+- `API_NUM_RETRIES`, `DB_NUM_RETRIES` (retries after the first call, per `micro/coding-standards/common.md` Standard 5)
 
 Prefix by domain (AI_, IMAGE_, SEARCH_) when multiple external integrations share similar key names.
 
@@ -150,7 +150,7 @@ Rule: Prefix with `is_`, `has_`, `can_`, or `allow_` in all languages.
 ```python
 is_valid = validate_input(record)
 has_checkpoint = checkpoint_path.exists()
-allow_retry = attempt < RETRY_MAX_ATTEMPTS
+allow_retry = attempt < config.API_NUM_RETRIES
 ```
 
 #### Failure Mode
@@ -187,7 +187,8 @@ Do not write comments that restate what the code already says.
 i += 1  # increment i
 
 # Good — explains why
-retry_delay *= 2  # exponential backoff — doubles on each attempt
+# The provider rejects batches over 500 rows, so split before sending.
+batches = chunk(rows, size=PROVIDER_MAX_BATCH_ROWS)
 ```
 
 #### Failure Mode
@@ -242,11 +243,11 @@ A real project renamed the same core concept three times mid-build. Each rename 
 
 ### The Relaxation
 
-A rename is not forbidden. A rename is acceptable when it is executed as one deliberate, complete pass:
-- the new term is introduced and the old term is explicitly marked deprecated in the same change
-- a transition window is declared with an end date
-- during the transition, both terms may coexist only inside a deprecation shim, never in fresh code, fresh UI copy, or fresh docs
-- after the declared date, the old term is removed everywhere, including comments
+A rename is not forbidden. The rule depends on who consumes the name:
+- an internal identifier, column, or UI term is renamed in one complete change: code, UI, docs, and tests together, with no alias left behind
+- a deprecation window with an alias applies only to a public contract other systems consume (an API field, an event, a column another service reads); it follows `meso/api-design.md` Versioning Migration and ends on a declared date
+- during that window, both names exist only at the contract boundary (the alias in the response or event), never in fresh code, fresh UI copy, or fresh docs
+- after the declared date, the old name is removed everywhere, including comments
 
 The distinction that matters: a single declared pass with a start and an end is a controlled change. Renaming a little bit at a time, whenever it's convenient, with no declared end state, is drift, and drift is what produces the three-rename scenario above.
 
@@ -260,24 +261,22 @@ The distinction that matters: a single declared pass with a start and an end is 
 
 Once locked, `cancellation_request` is the only term used in code identifiers, DB columns, API fields, UI copy, and docs. The rejected alternatives do not appear anywhere in the implementation, not even as aliases or comments.
 
-#### Example — Deprecation Timeline
+#### Example — Deprecation Timeline for a Public API Field
 
 ```
 Day 0    ADR approved: rename cancellation_request -> subscription_cancellation.
          Reason: collided with an unrelated "account termination" flow. New name
-         declared final.
+         declared final. Partner systems read the field from the public API.
 
-Day 0    New term introduced alongside old in the same change:
-         - subscription_cancellation is the canonical name going forward
-         - cancellation_request kept only as a deprecated alias, annotated with
-           the removal date
-         - all new code, UI text, and docs use subscription_cancellation only
+Day 0    One complete change inside the system: code, UI text, docs, and tests use
+         subscription_cancellation only. At the API boundary, responses carry both
+         fields; cancellation_request is a deprecated alias with Deprecation and
+         Sunset headers naming day 45 (meso/api-design.md, Versioning Migration).
 
-Day 0-45 Transition window: existing call sites migrated incrementally, but each
-         migration touches code + UI + docs + tests together — never a partial
-         rename left mid-file. Both terms exist only inside the alias shim.
+Day 0-45 Transition window for consumers only: partners move to the new field.
+         Nothing inside the system uses the old name.
 
-Day 45   cancellation_request removed entirely. A search for the old term returns
+Day 45   The alias is removed from the API. A search for the old term returns
          nothing outside the ADR and changelog history.
 ```
 
@@ -301,6 +300,9 @@ Renaming a core term without a declared transition leaves two names for the same
 ## Definition of Done
 
 Code conventions are applied correctly when:
+
+All items are Per change: this domain has no Standing (release and audit) items.
+
 - all names are self-describing without a supporting comment
 - casing follows the declared convention for the language and construct type
 - environment variables are domain-prefixed where integration overlap exists

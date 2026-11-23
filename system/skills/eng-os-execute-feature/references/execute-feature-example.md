@@ -6,7 +6,8 @@ Continues the `eng-os-spec-feature` worked example
 Product Brief and Phased Milestones are approved, the spec in `.specs/service-freshness-list/`
 is written and recorded with all three ledgers approved, and the project is already bootstrapped via
 `eng-os-bootstrap` with Active Skills including `eng-os-database-design`, `eng-os-api-design`,
-`eng-os-security-practices`, `eng-os-testing-strategy`, `eng-os-observability`, `eng-os-coding-standards-nodejs`,
+`eng-os-security-practices`, `eng-os-privacy-and-governance`, `eng-os-testing-strategy`, `eng-os-observability`,
+`eng-os-coding-standards-common`, `eng-os-coding-standards-nodejs`,
 `eng-os-code-conventions`, `eng-os-documentation-standards`, `eng-os-design-system`.
 
 Scope entering this skill: **Phase 1; Track and see staleness.** Service and Runbook entities;
@@ -67,8 +68,8 @@ response, and a second test with no session gets 401 and no data (R2.1); DoD pas
 *Commit:* `feat: add GET /v1/services endpoint`.
 
 **T5:** Log line and gauge added at the point T3's handler computes freshness for each service.
-*Verify:* log line includes `trace_id`, `span_id`, `severity`, `service` per the observability
-skill's structured-field requirement; gauge value matches a seeded fixture's known missing-count.
+*Verify:* log line carries the Standard 6 minimum fields (`timestamp`, `level`, `message`,
+`trace_id`, `span_id`, `service`) per the observability skill's record shape; gauge value matches a seeded fixture's known missing-count.
 *Commit:* `feat: add freshness observability signals`.
 
 **T4:** Component built consuming T3's endpoint, using the design system's existing status-color
@@ -96,6 +97,21 @@ a `verified` line, naming the check that proved it: R1.3 to R1.5 by the T2 bound
 T4 component test, R2.1 by the T3 no-session test, and so on. No requirement is left without a check. This satisfies Phase 1's
 Product Brief Definition of Done: "a seeded set of services with varying last-reviewed dates
 renders the correct color for each, verified against the 90-day threshold."
+
+## Phase 7 — Sync Living Documents
+
+Each living document is updated or marked "no change" with its reason, recorded as one line per
+row in the final commit description:
+
+| Document | Result |
+|---|---|
+| README and onboarding steps | Updated: the Service List screen and its seed command are added to "Run locally" |
+| `docs/architecture/` C4 views | No change: no new container, data store, queue, or external dependency; the screen reads the existing database |
+| API reference and `docs/contracts/` | Updated: `GET /v1/services` documents the `freshness` field and its four values |
+| Runbook | Updated: an alert on the count of services in the `missing` state, with its recovery step (assign an owner, then a runbook) |
+| ADR | None: the 90-day threshold and the four states are below the ADR threshold (cheap to reverse, no locked term changed) |
+| `.specs/service-freshness-list/` | No change: Phase 6 recorded every requirement as verified, and the check list is clean |
+| CHANGELOG or release notes | Updated: "Service List shows each runbook's freshness" |
 
 ## What this shows
 

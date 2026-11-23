@@ -292,12 +292,18 @@ Invert the pyramid (many integration tests, few unit tests) and the suite become
 ## Definition of Done
 
 Testing strategy is complete when:
+
+### Per change
+
 - every public function has at least one happy-path and one failure-path unit test
 - unit tests mock only at the external boundary and make no real network calls
 - integration tests use real components in a controlled, reset environment
 - producer/consumer schema contracts are machine-verified in CI
 - AI evaluation asserts structural and behavioral properties with explicit thresholds
+- a rule adopted on code that already breaks it is held by a ratchet baseline: counts may not rise, a baseline above the count fails, and the baseline is never regenerated to pass
+
+### Standing (release and audit)
+
 - the test suite runs in CI on every commit with a defined pass/fail gate
 - load, spike, and soak tests run in stage against the Scale Targets before launch and on a schedule, with SLO-based pass criteria
 - flaky tests are quarantined to a non-blocking suite with an owner and fix-by date; no retry-until-green in the main pipeline
-- a rule adopted on code that already breaks it is held by a ratchet baseline: counts may not rise, a baseline above the count fails, and the baseline is never regenerated to pass

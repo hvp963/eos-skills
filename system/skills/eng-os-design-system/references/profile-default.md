@@ -3,18 +3,18 @@
 The concrete values the Engineering OS ships as its default visual system. A project adopts
 this profile unchanged, inherits a sibling app's, or declares its own; the rule at OS level is
 only that one profile is declared in CLAUDE.md and referenced from every component
-(`SKILL.md`, Rule versus Profile). Canonical source: `../../../meso/design-system.md` Sections 1,
-2, and 4; full token table: `design-tokens-full.md`; reference CSS:
+(`SKILL.md`, Rule versus Profile). Canonical source: `../../../meso/design-system.md` Sections 1
+to 5; full token table: `design-tokens-full.md`; reference CSS:
 `../../../micro/templates/base-styles.css`.
 
 ## Design Tokens (condensed)
 
 Full token table (colors, elevation, typography, radius): `design-tokens-full.md`.
 
-- Brand: `--primary`, `--primary-light`, `--primary-glow`
-- Semantic: `--green`/`--amber`/`--red` (+ `-soft` tints); meaning is fixed (green=success, amber=caution, red=error/breaking); never mix
+- Brand: `--primary`, `--primary-hover` (hover on primary fills), `--primary-text` (primary-hued text on a tint), `--primary-light` (non-text accents), `--primary-glow`, `--on-primary` (text on primary fills)
+- Semantic: `--green`/`--amber`/`--red`/`--cyan` for fills, borders, and bars, each with a `-text` token for text in that hue and a `-soft` (or `-glow`) tint; meaning is fixed (green=success, amber=caution, red=error/breaking, cyan=information); never mix
 - Surface: `--bg` (page) vs `--surface` (cards); never set page background to `--surface`
-- Text: `--text` / `--text-muted` / `--text-dim`
+- Text: `--text` / `--text-muted` (secondary text and placeholders) / `--text-dim` (disabled and decorative only); every text token's contrast is in the canon's table (Section 1.9)
 - Border: `--border` / `--border-bright`
 - Elevation: `--shadow-sm` (resting) / `--shadow-md` (hover, modals); no other box-shadow values
 - Radius: `sm 6px` (badges/chips) · `md 8px` (callouts/inner tables) · `lg 10–12px` (cards, preferred default) · `full 99px` (pills)
@@ -25,6 +25,21 @@ One clear primary heading per screen/document. Hierarchy comes from weight and s
 reinforces it, never replaces it. Fixed scale: Page Title (26–28px/700) → Section Title (16–18px/700)
 → Card Title (14–15px/600) → Body (14–15px/400) → Secondary body (13–14px/400, muted) →
 Label/Eyebrow (10–12px/600–700, uppercase). Do not introduce sizes outside this scale.
+
+## Badge Variants
+
+Seven semantic variants, matching the classes `base-styles.css` ships. Each pairs a tint with its
+hue's `-text` token, so the label reaches 4.5:1 on its own fill.
+
+| Class | Fill | Text | Use |
+|---|---|---|---|
+| `badge-improved` | `--primary-glow` | `--primary-text` | An improvement to something that exists |
+| `badge-new` | `--green-soft` | `--green-text` | Something added |
+| `badge-behavior` | `--amber-soft` | `--amber-text` | A behavior change to notice |
+| `badge-breaking` | `--red-soft` | `--red-text` | A breaking change |
+| `badge-fixed` | `--surface-3` | `--text-muted` | A fix |
+| `badge-deprec` | `--amber-soft` | `--amber-text` | A deprecation |
+| `badge-info` | `--cyan-glow` | `--cyan-text` | Information |
 
 ## Sticky Navigation Header
 

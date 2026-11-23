@@ -14,7 +14,10 @@ Checks (all fail the run):
      meta/, macro/, meso/, and micro/; every skill named in MINDMAP.md's diagram exists.
   5. Every relative markdown link ([text](path)) resolves to a file.
   6. No em dash joins two clauses in flowing prose (letters on both sides of ' — '),
-     outside headings, table rows, code blocks, and frontmatter.
+     outside headings, code blocks, and frontmatter. Table cells are checked too; a cell may
+     use the `Label — definition` form, where the label before the dash is three words or
+     fewer. A demonstration of the banned pattern sits between
+     `<!-- lint-os: allow-em-dash-begin -->` and `<!-- lint-os: allow-em-dash-end -->`.
   7. The message-code format is stated consistently as 3 letters + 6 digits (no {AREA}{NNNN}).
   8. Backticked file paths in the normative docs resolve: layer paths (meta/, macro/, meso/,
      micro/, skills/) from system/, `../` paths from the file, `references/` paths from the skill.
@@ -25,6 +28,11 @@ Checks (all fail the run):
      no owner to keep it in sync.
  11. Every skill description is a double-quoted YAML string, so a ": " or " #" inside it cannot
      break a strict parser.
+ 12. No retired term returns: `JSDoc-style`, `BACKOFF_MS`, `backoffMs`, the fixed
+     `[50, 100, 200, 500]` schedule, `MAX_ATTEMPTS`, `MAX_RETRIES`, or `severity` in a log-field
+     list beside `trace_id`. History (CHANGELOG.md, docs/decisions/, evidence/) is exempt.
+ 13. Every "Standard N" citation names a standard that exists in micro/coding-standards/common.md,
+     and a title written beside it matches that standard's heading.
 
 Usage: python tools/lint-os.py [--fix-counts]
 """
@@ -94,7 +102,7 @@ count_files = [
 ]
 COUNT_RE = re.compile(r"(?<![\d.,])(\d+)[\s-]+(?:individual\s+)?(?:domain\s+)?(?:Claude\s+Code\s+)?skills?")
 n_docs = sum(1 for layer in ("meta", "macro", "meso", "micro") for _ in (SYS / layer).rglob("*.md"))
-DOC_RE = re.compile(r"(?<![\d.,])(\d+)\s+(?:prose\s+)?documents\b|\ball\s+(\d+)\s+(?:prose\s+)?files")
+DOC_RE = re.compile(r"(?<![\d.,])(\d+)\s+(?:prose\s+|canonical\s+)?documents\b|(?<![\d.,])(\d+)\s+(?:prose|canonical)\s+files\b|\ball\s+(\d+)\s+(?:prose\s+|canonical\s+)?files")
 for p in count_files:
     if not p.exists(): err(p, 1, "count file missing"); continue
     t = p.read_text(encoding="utf-8")
@@ -137,10 +145,13 @@ for p in md_files:
     if not p.exists(): continue
     if p.name in ("CHANGELOG.md",): continue  # historical record, kept verbatim
     t = p.read_text(encoding="utf-8")
-    if "<!-- lint-os: allow-em-dash -->" in t: continue  # a file whose subject is the rule itself
-    in_code = False; in_fm = False
+    in_code = False; in_fm = False; allowed = False
     for i, ln in enumerate(t.split(chr(10)), 1):
         s = ln.strip()
+        # a demonstration of the banned pattern is fenced by a begin/end pair, never a whole file
+        if "<!-- lint-os: allow-em-dash-begin -->" in s: allowed = True; continue
+        if "<!-- lint-os: allow-em-dash-end -->" in s: allowed = False; continue
+        if allowed: continue
         if i == 1 and s == "---": in_fm = True; continue
         if in_fm:
             if s == "---": in_fm = False; continue
@@ -149,7 +160,15 @@ for p in md_files:
             # verified_platforms and their list items) are YAML structure, not prose.
             if not s.startswith("description:"): continue
         if s.startswith("```"): in_code = not in_code; continue
-        if in_code or s.startswith("#") or s.startswith("|"): continue
+        if in_code or s.startswith("#"): continue
+        if s.startswith("|"):
+            # table cells: a `Label — definition` cell is allowed when the label is short
+            for cell in s.strip("|").split("|"):
+                mm = EM.search(cell)
+                if mm and len(cell[:mm.start() + 1].split()) > 3:
+                    err(p, i, "em dash joins two clauses in a table cell (prose-style hard ban)")
+                    break
+            continue
         if EM.search(ln):
             err(p, i, "em dash joins two clauses in flowing prose (prose-style hard ban)")
 
@@ -218,6 +237,45 @@ for f in sorted((SYS / "skills").rglob("*.md")):
         if hits and not any(h in allowed for h in hits):
             where = raw[:raw.index(blk)].count("\n") + 1
             err(f, where, f"copies text from {hits[0].relative_to(SYS)}, which is not in this skill's sources:")
+
+# ---------- 12: retired terms ----------
+RETIRED = [
+    (re.compile(r"JSDoc-style"), "`JSDoc-style` (docstrings are per language: JSDoc for TypeScript, Google style for Python)"),
+    (re.compile(r"\bBACKOFF_MS\b|\bbackoffMs\b"), "a fixed backoff table (retry uses full jitter, common.md Standard 5)"),
+    (re.compile(r"\[50, ?100, ?200, ?500"), "the fixed [50, 100, 200, 500] retry schedule"),
+    (re.compile(r"\bMAX_ATTEMPTS\b"), "`MAX_ATTEMPTS` (the setting is `{AREA}_NUM_RETRIES`, retries after the first call)"),
+    (re.compile(r"\bMAX_RETRIES\b"), "`MAX_RETRIES` as a constant (a retry count is config: `{AREA}_NUM_RETRIES`)"),
+]
+SEVERITY_FIELD = re.compile(r"severity")
+for p in md_files:
+    if not p.exists() or p.name == "CHANGELOG.md": continue
+    parts = p.relative_to(SYS).parts
+    if "decisions" in parts or "evidence" in parts: continue  # history keeps its own words
+    t = p.read_text(encoding="utf-8")
+    for i, ln in enumerate(t.split("\n"), 1):
+        for rx, why in RETIRED:
+            if rx.search(ln):
+                err(p, i, f"retired term: {why}")
+        if SEVERITY_FIELD.search(ln) and "trace_id" in ln:
+            err(p, i, "retired term: `severity` as a log field (the field is `level`)")
+
+# ---------- 13: numbered-standard citations ----------
+common_text = (SYS / "micro/coding-standards/common.md").read_text(encoding="utf-8")
+STD_TITLES = {m.group(1): m.group(2).strip() for m in re.finditer(r"^### (\d+[a-z]?)\. (.+)$", common_text, re.M)}
+TITLE_WORDS = {n: title.split(":")[0].split(",")[0].split(" ")[0].lower() for n, title in STD_TITLES.items()}
+STD_RE = re.compile(r"\bStandard (\d+[a-z]?)\b(?:[ ,(:]+\(?([A-Z][A-Za-z-]+))?")
+for p in md_files:
+    if not p.exists() or p.name == "CHANGELOG.md": continue
+    if "decisions" in p.relative_to(SYS).parts: continue
+    t = p.read_text(encoding="utf-8")
+    for i, ln in enumerate(t.split("\n"), 1):
+        for m in STD_RE.finditer(ln):
+            n, word = m.group(1), m.group(2)
+            if n not in STD_TITLES:
+                err(p, i, f"cites Standard {n}, which common.md does not define")
+                continue
+            if word and word.lower() in TITLE_WORDS.values() and word.lower() != TITLE_WORDS[n]:
+                err(p, i, f"cites Standard {n} as `{word}`; Standard {n} is `{STD_TITLES[n]}`")
 
 # ---------- report ----------
 if errors:

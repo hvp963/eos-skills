@@ -1,6 +1,6 @@
 ---
 name: eng-os-observability
-description: "Use when adding logging, metrics, tracing, or alerting; defines standard log/metric/trace record shapes and signal design by system boundary."
+description: "In a project governed by the Engineering OS, use when adding logging, metrics, tracing, or alerting; defines standard log/metric/trace record shapes and signal design by system boundary."
 sources:
   - meso/observability.md
 globs: ["**/*"]
@@ -23,8 +23,8 @@ designed at the point behavior is written, not bolted on after an incident.
 ## Core Signals
 
 - **Metrics**: trend, health, saturation, throughput, latency, violation rates.
-- **Logs**: structured, for contextual diagnosis. Every record needs `trace_id`; never a catch-all `context`.
-- **Traces**: generate `trace_id` once at system entry, propagate unchanged through every downstream call, log, and AI invocation; each hop gets its own `span_id`.
+- **Logs**: structured, for contextual diagnosis. Every record carries `trace_id` and `span_id`, bound once at entry in the language's context store (downstream functions take no logger argument); the operation's identifiers are top-level fields beside the standard ones, never a catch-all dump of the request.
+- **Traces**: generate `trace_id` once at system entry and propagate it unchanged with W3C `traceparent`/`tracestate` through the OpenTelemetry propagator API, to every downstream call, log, and AI invocation; each hop gets its own `span_id`. `X-Trace-Id` is accepted on input only, as a legacy fallback when a caller cannot send `traceparent`.
 - **Audit/validation events**: contract violations, schema failures, policy violations, safety enforcement.
 
 Full record shapes (log, metric, trace context) and field-by-field rules: `references/standard-data-models.md`.
@@ -35,17 +35,17 @@ Emit signals at every boundary where behavior, latency, or correctness can chang
 
 | Boundary | Emit |
 |---|---|
-| Request | duration histogram, count counter (tagged by status), error log on 5xx |
+| Request | `http.server.request.duration` histogram (seconds) with `http.route` (the route template, never the raw path) and `http.response.status_code`; the count is the histogram's count; error log on 5xx |
 | Publish/consume | count counter by direction/topic/success, error log on failure |
 | Transformation (pipeline stage) | output count, error count, output age gauges per stage |
 | Validation | pass/fail counter tagged by schema, warn log with violations on failure |
-| AI generation | call duration, schema compliance counter, constraint violation counter; warn log on violation |
+| AI generation | call duration, `ai.schema_compliance` counter (`valid` attribute), `ai.constraint_violation` counter (`violated` attribute); warn log on violation |
 
 ## AI-Specific Observability
 
 Track at minimum: determinism rate, schema compliance rate, constraint violation rate, output
 variance, assumption usage frequency where material. These are not optional if AI output affects
-downstream systems or decisions; block downstream use when schema validation fails.
+downstream systems or decisions; block downstream use when schema validation fails. Rates are computed at query time from the counters, never emitted as `_rate` metrics.
 
 ## Metric Cardinality Budget
 Declare, per metric, its labels and the maximum distinct values each may take. Never put an unbounded value (user id, request id, parameterized URL, free text, tenant id at scale) on a metric label; those belong on logs and traces. Set a per-service budget for active time series and alert when exceeded.
@@ -60,7 +60,7 @@ Declare a policy: head-based sampling at a fixed rate for the baseline, plus tai
 - Failure mode: uniform 1% sampling keeps traces nobody needs and drops the one slow request on-call is looking for.
 
 ## Interoperability Standard
-Emit through OpenTelemetry (API and semantic conventions) so signal shapes are portable across backends; use convention names (`http.request.method`, `db.system`, `service.name`) rather than local aliases. Language mechanics for carrying `trace_id` without threading it through signatures: `eng-os-coding-standards-python` (`contextvars`) and `eng-os-coding-standards-nodejs` (`AsyncLocalStorage`).
+Emit through OpenTelemetry (API and semantic conventions) so signal shapes are portable across backends; use convention names (`http.server.request.duration`, `http.route`, `http.request.method`, `db.system`, `service.name`) rather than local aliases; the local `{service}.{operation}.{unit}` naming applies only to custom metrics. Language mechanics for carrying `trace_id` without threading it through signatures: `eng-os-coding-standards-python` (`contextvars`) and `eng-os-coding-standards-nodejs` (`AsyncLocalStorage`).
 - Failure mode: vendor-specific instrumentation makes the next backend migration a rewrite of every call site.
 
 ## AI-IDS Observability UI
@@ -81,17 +81,23 @@ The Scoring Run indicator and provenance drill-down for user-facing AI inference
 
 ## Definition of Done
 
+### Per change
+
 - [ ] Critical user and system flows have measurable signals
 - [ ] Validation and contract failures are surfaced as observable events
 - [ ] Latency, throughput, and errors are measurable at every boundary
-- [ ] `trace_id` is generated at entry and propagated through all downstream calls and logs
-- [ ] Log records conform to the standard shape: timestamp, level, message, trace_id, service, context
+- [ ] `trace_id` is generated at entry and propagated with W3C `traceparent` through all downstream calls, and bound once so every log line carries it
+- [ ] Log records carry the `eng-os-coding-standards-common` Standard 6 minimum fields (`timestamp`, `level`, `message`, `trace_id`, `span_id`, `service`) in the shape in `references/standard-data-models.md`
+- [ ] Metric attributes use route templates, never raw paths; names follow OpenTelemetry semantic conventions where one exists
 - [ ] AI-specific correctness metrics exist where AI is used and gate downstream use on schema validity
 - [ ] For AI-IDS systems, `eng-os-ai-ids-authoring`'s Observability UI Contract is satisfied
 - [ ] Debugging a major failure is feasible without guesswork
 - [ ] Every metric declares its labels and maximum cardinality; no unbounded identifier is a label; a per-service series budget is alerted on
 - [ ] A trace sampling policy always keeps errored and SLO-breaching traces, decided once at entry and propagated
 - [ ] Instrumentation uses OpenTelemetry APIs and semantic conventions
+
+### Standing (release and audit)
+
 - [ ] Every service's logs reach a durable sink beyond process stdout, with a declared rotation policy, retention window, and per-`EXECUTION_MODE` level policy
 
-For a worked example, see `references/example.md`.
+For a worked example (one service's metric declarations with cardinality caps, its sampling policy, a traced hop, and its log persistence), see `references/example.md`.

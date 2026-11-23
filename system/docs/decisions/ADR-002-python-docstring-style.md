@@ -76,3 +76,4 @@ Revisit if a Python doc tool with JSDoc support becomes standard in the team's s
 
 - `micro/coding-standards/python.md` Section 9
 - `micro/coding-standards/common.md` Standard 11
+- Erratum (2026-11-22): Standard 11 was renumbered; the rule cited above is now `micro/coding-standards/common.md` Standard 10 (Documentation Baseline). The skill path `skills/coding-standards/python` is now `skills/eng-os-coding-standards/python`. The decision text above is unchanged.

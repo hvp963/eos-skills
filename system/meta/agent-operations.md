@@ -84,8 +84,14 @@ holds only what is true regardless of provider.
 ## Definition of Done
 
 An agent is operating to this standard when:
-- the always-loaded instruction set was reviewed this release and detail moved to references
+
+### Per change
+
 - prompts are ordered static-first with volatile input last
 - tools were checked for overlap before any was added
 - independent sub-tasks ran in parallel and continuation tasks reused their session
 - exploration, changes, and retries stayed within the bounds in Section 5
+
+### Standing (release and audit)
+
+- the always-loaded instruction set was reviewed this release and detail moved to references

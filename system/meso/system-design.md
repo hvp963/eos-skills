@@ -277,6 +277,9 @@ bulkheads, shedding, graceful degradation).
 ## Definition of Done
 
 A system design is complete when:
+
+### Per change
+
 - boundaries are explicit
 - C4 modeling is clear at Context and Container level
 - the C4 views are committed in `docs/architecture/` as text diagrams, with an owner and linked ADRs, and match the code as of this change
@@ -286,7 +289,10 @@ A system design is complete when:
 - likely failure modes are identified
 - observability expectations are defined
 - bounded contexts are drawn before services, and no service straddles two contexts or shares a database with another
-- a capacity model states peak load, data volume, largest tenant, and which component saturates first
-- blast-radius isolation is explicit: single region with a stated RPO/RTO, or multi-region and/or cell-based with the routing and failover model declared
 - every queue and pool is bounded and the load-shedding behavior at the bound is defined
 - UX and information-architecture constraints for any UI are covered by `meso/design-system.md` Section 3.8
+
+### Standing (release and audit)
+
+- a capacity model states peak load, data volume, largest tenant, and which component saturates first
+- blast-radius isolation is explicit: single region with a stated RPO/RTO, or multi-region and/or cell-based with the routing and failover model declared

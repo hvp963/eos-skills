@@ -14,8 +14,8 @@ Folder: `.specs/service-freshness-list/`.
 ## Phase 0: Intake
 
 CLAUDE.md read: Terminology Lock fixes "Runbook," "stale/fresh," and "review interval." The
-Active Skills include the database, API, security, testing, observability, design-system, and
-Node.js standards skills. The Phase 1 brief says "red/yellow/green/missing" but gives a rule only
+Active Skills include the database, API, security, privacy-and-governance, testing, observability,
+design-system, and Node.js standards skills. The Phase 1 brief says "red/yellow/green/missing" but gives a rule only
 for stale ("every 90 days"), so the yellow threshold is undefined.
 
 Spec warranted: yes. The feature takes five tasks, adds an endpoint and two tables, and has
@@ -168,16 +168,19 @@ build it are new rows that amend the ones they replace:
 - R1.7 (author dana.okafor): IF a Runbook's last-reviewed date is in the future THEN THE SYSTEM
   SHALL treat its age as 0 days and show the state "green". Its scenarios S11 (30 days ahead) and
   S12 (tomorrow) cover the unwanted path.
-- D6, with `Reference` "Amends D2", which lists R1.2, R1.5, and R1.7.
-- T6, with `Reference` "Amends T2", which depends on T2 and lists R1.2, R1.5, and R1.7 and the
-  scenarios for them, so the requirements and scenarios T2 covered are still covered.
+- D6, with `Reference` "Amends D2", which lists R1.2, R1.3, R1.4, R1.5, and R1.7: every
+  requirement D2 covered, plus the new one.
+- T6, with `Reference` "Amends T2", which depends on T2 and lists R1.2, R1.3, R1.4, R1.5, and R1.7
+  and the scenarios S3 to S9, S11, and S12, so the requirements and scenarios T2 covered are still
+  covered (an amending row carries forward every still-active link of the row it replaces).
 
 On 2026-12-01 the yellow window changes to 70 days. R1.3 and R1.4 are frozen, so R1.9 amends R1.3 and
 R1.8 amends R1.4, each with new scenarios: S13 (70 days, yellow), S14 (89 days, yellow), S15 (69
 days, green), and S16 (0 days, green). The scenarios S4 to S7 stay as history. D6 and T6 have not
 been built on yet, so they are edited in place instead of amended again: an `edited` line for D6 and
-for T6, and a new approval for each. T6 now lists R1.8 and R1.9 and their scenarios as well. The old
-rows stay as they were, and are superseded by the rows that amend them.
+for T6, and a new approval for each. In D6 and T6, R1.9 and R1.8 replace R1.3 and R1.4, and in T6
+the scenarios S13 to S16 replace S4 to S7, so T6 lists S3, S8, S9, S11, S12, and S13 to S16. The
+old rows stay as they were, and are superseded by the rows that amend them.
 
 Reading the log and the tables after the change gives:
 

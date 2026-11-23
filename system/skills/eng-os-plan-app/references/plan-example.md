@@ -62,7 +62,7 @@ Recorded as the brief's Scale Targets (assumptions marked):
 | Latency and availability | Service List p50 150 ms, p99 600 ms; 99.5% availability per month (about 3.6 hours of downtime) |
 | Recovery | RPO 24 hours (daily backup), RTO 8 hours |
 | Tenancy | single-tenant (one organization); no `tenant_id` column |
-| Data classification | Internal (owning team names, Runbook URLs); no personal data beyond an Engineer's name; no regulatory scope |
+| Data classification | Confidential (Engineer names and work emails are personal data); owning team names and Runbook URLs are Internal; no regulatory scope |
 
 The numbers also rule things out. At about 3 requests per second and a few thousand rows, no
 partitioning, read replica, or cell layout is justified, and `eng-os-testing-strategy`'s load
@@ -130,7 +130,7 @@ N/A. Standalone app, not part of a multi-app suite. This app originates its own 
 - Edge cases to include: at least one service with no Runbook at all (the "missing" state), one
   Runbook reviewed yesterday (green), one overdue by a wide margin (deep red, not just
   borderline yellow), and one service with a custom 30-day override that would otherwise show
-  green under the 90-day default (to prove the override actually changes the computed color).
+  green under the 90-day default (to prove the override changes the computed color).
 
 ## Phase 8 — Approval Gate
 

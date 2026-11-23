@@ -1,4 +1,4 @@
-# Bootstrap Worked Example — On-Call Rotation Tracker
+# Bootstrap Worked Example: On-Call Rotation Tracker
 
 A concrete run through the Bootstrap Sequence for a small internal tool: **"a small internal
 tool for tracking on-call rotations"**: who's on call for which service, when shifts hand off,
@@ -53,6 +53,7 @@ Mapped from Step 1 findings:
 - `eng-os-observability`: the cron-based reminder job is exactly the kind of "silently stops firing"
   failure mode that needs a metric/log, not just try/catch.
 - `eng-os-testing-strategy`: `vitest` suite already exists and is CI-enforced.
+- `eng-os-coding-standards-common`: every project that writes code.
 - `eng-os-coding-standards-nodejs`: TypeScript throughout, both API and frontend.
 - `eng-os-design-system`: has a React front end with its own component styling (this app is
   standalone, so it originates its own design system rather than inheriting one).
@@ -74,23 +75,23 @@ Mapped from Step 1 findings:
 ```markdown
 ## Active Skills
 
-- eng-os-core — always active
-- eng-os-api-design — REST API for rotations, services, and shifts consumed by the React UI
-- eng-os-database-design — Postgres schema and migrations for rotations/services/shifts
-- eng-os-security-practices — internal SSO auth; shift/contact data needs read restriction
-- eng-os-reliability-engineering — reminder job calls an outbound notification service
-- eng-os-privacy-and-governance — engineer phone numbers and emails stored for reminders
-- eng-os-observability — cron-based handoff reminders must be observable, not silent-failure-prone
-- eng-os-testing-strategy — vitest suite, CI-enforced
-- eng-os-coding-standards-common + eng-os-coding-standards-nodejs — TypeScript across API and frontend
-- eng-os-design-system — React frontend; this app originates its own design system (standalone, no suite)
-- eng-os-deployment-practices — GitHub Actions CI/CD to internal host
-- (omitted: eng-os-system-design — one service, one database, no boundary question yet)
-- (omitted: eng-os-data-strategy — no pipelines beyond the reminder job)
-- (omitted: eng-os-platform-infrastructure — single small host, no regions or cells)
-- (omitted: eng-os-ai-ids-authoring — no AI components in this project)
-- (omitted: eng-os-team-practices — no formal team process to codify yet at this size)
-- (omitted: eng-os-model-optimization — no AI workflow exists to tune)
+- eng-os-core: always active
+- eng-os-api-design: REST API for rotations, services, and shifts consumed by the React UI
+- eng-os-database-design: Postgres schema and migrations for rotations/services/shifts
+- eng-os-security-practices: internal SSO auth; shift/contact data needs read restriction
+- eng-os-reliability-engineering: reminder job calls an outbound notification service
+- eng-os-privacy-and-governance: engineer phone numbers and emails stored for reminders
+- eng-os-observability: cron-based handoff reminders must be observable, not silent-failure-prone
+- eng-os-testing-strategy: vitest suite, CI-enforced
+- eng-os-coding-standards-common + eng-os-coding-standards-nodejs: TypeScript across API and frontend
+- eng-os-design-system: React frontend; this app originates its own design system (standalone, no suite)
+- eng-os-deployment-practices: GitHub Actions CI/CD to internal host
+- (omitted: eng-os-system-design; one service, one database, no boundary question yet)
+- (omitted: eng-os-data-strategy; no pipelines beyond the reminder job)
+- (omitted: eng-os-platform-infrastructure; single small host, no regions or cells)
+- (omitted: eng-os-ai-ids-authoring; no AI components in this project)
+- (omitted: eng-os-team-practices; no formal team process to codify yet at this size)
+- (omitted: eng-os-model-optimization; no AI workflow exists to tune)
 ```
 
 ## Step 5 — `## Scale Targets` in numbers
@@ -145,10 +146,10 @@ the company's existing SSO, which this app consumes but does not own.
 - **"Rotation"** is canonical for the repeating pattern; rejected alternative: "schedule" (too
   broad; the UI also has a literal calendar "schedule view" that shows Shifts, so reusing
   "schedule" for the pattern itself would collide).
-- **"Handoff"** is the canonical verb/noun for the transition between two Shifts — rejected
+- **"Handoff"** is the canonical verb/noun for the transition between two Shifts; rejected
   alternative: "transfer" (sounds financial in this domain, was confusing in early UI copy
   review).
-- **"Engineer"** is canonical for a person who can be on call — rejected alternative: "user"
+- **"Engineer"** is canonical for a person who can be on call; rejected alternative: "user"
   (too generic; this app also has read-only "viewers" who are users but never Engineers).
 ```
 
@@ -162,48 +163,58 @@ CLAUDE.md considered live, and `eng-os-core`'s checkpoint table becomes enforcea
 project.
 
 Project Structure is populated using the web-app example in `eng-os-bootstrap`'s own template
-(capability-based MVCS layering plus the four-region app shell), since `src/web/` here is a React frontend, not a
-static/report page:
+(capability-based MVCS layering plus the four-region app shell). The API, the scheduled job, and the
+React front end share one source root, `src/`, because every one of them is a capability with the
+same five layers; only what each controller binds to differs:
 
 ```
-src/web/
-  app.ts          Composition root
-  config/env.ts
+src/
+  server.ts       Entry point: starts the HTTP server and the scheduler
+  app.ts          Composition root: builds repositories, injects them into services
+  config/env.ts   All env vars parsed here (one config path for the whole project)
   capabilities/
-    rotations/    controllers/ services/ repositories/ models/ views/   (all five folders)
-    shifts/       controllers/ services/ repositories/ models/ views/
-    engineers/    controllers/ services/ repositories/ models/ views/
+    rotations/          controllers/ services/ repositories/ models/ views/   (all five folders)
+    shifts/             controllers/ services/ repositories/ models/ views/
+    engineers/          controllers/ services/ repositories/ models/ views/
+    handoff-reminders/  controllers/ services/ repositories/ models/ views/
+                        (the cron job: its controller is bound to the schedule, not to a route)
   shared/
     views/
       shell/      AppHeader, AppFooter, NavPanel
-      components/ ShiftCard, HandoffBadge — shared across 2+ pages
+      components/ ShiftCard, HandoffBadge: shared across 2+ pages
     constants/    ROTATIONS_LABELS, ROTATIONS_MESSAGES, etc., sectioned by area
+    styles/       tokens.css and global styles
 ```
 
-Retrofitting `src/web/`'s existing flat structure into this layout is itself a task the task
-list (`eng-os-execute-feature`) should carry as an explicit early item, not something silently implied
-by the CLAUDE.md update: moving files without a tracked task is exactly the kind of drift this
-OS exists to prevent.
+A React page is the controller of its capability (`capabilities/rotations/controllers/rotations.page.tsx`
+serves `/rotations`), and the components it renders sit in that capability's `views/`. The API
+route handlers live beside it in the same `controllers/` folder (`rotations.controller.ts`).
+
+Retrofitting the existing `src/api/`, `src/db/`, and `src/web/` folders into this layout is itself
+a task the task list (`eng-os-execute-feature`) should carry as an explicit early item, not
+something silently implied by the CLAUDE.md update: moving files without a tracked task is
+exactly the kind of drift this OS exists to prevent.
 
 ## Step 7 — Architecture Practices Gate
 
-Run before marking bootstrap done, since this project has a UI (`src/web/`) and will emit
-operational messages (handoff reminders, save confirmations):
+Run before marking bootstrap done, since this project has a UI and will emit operational
+messages (handoff reminders, save confirmations):
 
 | Practice | Concrete answer written into CLAUDE.md |
 |---|---|
-| Constants sectioned by area | `src/web/shared/constants/rotations.ts`, `engineers.ts`, `shifts.ts` — one file per Core Entity area, each exporting `{AREA}_LABELS` and `{AREA}_MESSAGES` |
+| Constants sectioned by area | `src/shared/constants/rotations.ts`, `engineers.ts`, `shifts.ts`, `handoff-reminders.ts`: one file per Core Entity area, each exporting `{AREA}_LABELS` and `{AREA}_MESSAGES` |
 | User-facing strings are constants | Every label/heading/message in each capability's `views/` and in `shared/views/shell/` reads from the constants files above; no inline literal strings in JSX |
 | Message code prefix, shared sequence | `## Message Area Codes` table: `ROT` = Rotations, `ENG` = Engineers, `SHF` = Shifts, `HDR` = HandoffReminder. Single project-wide counter starts at `000001` |
-| Capabilities and the five layers | `rotations`, `shifts`, `engineers`, each with `controllers/`, `services/`, `repositories/`, `models/`, `views/` under `src/web/capabilities/`; `shared/` for the shell and cross-capability components |
-| Composition root | `src/web/app.ts` builds each repository and injects it into its service |
+| Capabilities and the five layers | `rotations`, `shifts`, `engineers`, `handoff-reminders`, each with `controllers/`, `services/`, `repositories/`, `models/`, `views/` under `src/capabilities/`; `shared/` for the shell and cross-capability components |
+| Composition root | `src/app.ts` builds each repository and injects it into its service |
 | Dependency direction enforced | `dependency-cruiser` config at `.dependency-cruiser.cjs`, run in CI; fails on an upward import or a cross-capability import that skips `services/` |
-| Business logic in the service layer | `src/web/capabilities/rotations/services/`, `shifts/services/`, `engineers/services/` — retry/reminder scheduling logic moves here, out of `src/api/` route handlers |
-| Global CSS, no hardcoded styles | `src/web/styles/tokens.css`, following `eng-os-design-system` skill's token set; components reference tokens only. Primitives in `src/web/shared/views/components/ui/` with a catalog entry each; `tests/design-system.test.ts` counts raw controls, off-scale sizes, and hex colours against `tests/design-system-baseline.json`, written once and only ever lowered |
+| Business logic in the service layer | `src/capabilities/rotations/services/`, `shifts/services/`, `engineers/services/`, `handoff-reminders/services/`: reminder scheduling logic moves here, out of the current `src/api/` route handlers |
+| Global CSS, no hardcoded styles | `src/shared/styles/tokens.css`, following `eng-os-design-system` skill's token set; components reference tokens only. Primitives in `src/shared/views/components/ui/` with a catalog entry each; `tests/design-system.test.ts` counts raw controls, off-scale sizes, and hex colours against `tests/design-system-baseline.json`, written once and only ever lowered |
 | Four-region app shell | `shared/views/shell/AppHeader.tsx`, `AppFooter.tsx`, `NavPanel.tsx` (links: Rotations, Schedule, Engineers); each capability's `views/` renders into the application panel |
-| Reusable components | `shared/views/components/ShiftCard.tsx`, `HandoffBadge.tsx` — extracted since both already appear on 2+ pages in the existing code |
-| Transport mapping | Controllers bind page routes (`rotations.controller.ts` handles `/rotations`); views produce rendered pages; the existing flat `src/api/` route handlers are renamed and split into the capability controllers during the retrofit task |
-| Responsive breakpoints | Existing CSS uses fixed `960px` containers — flagged as a retrofit item to convert to `minmax()`/`%`-based layout for the 768px/1024px breakpoints |
+| Reusable components | `shared/views/components/ShiftCard.tsx`, `HandoffBadge.tsx`: extracted because both already appear on 2+ pages in the existing code |
+| Transport mapping | A page is its capability's controller (`rotations.page.tsx` serves `/rotations`); route handlers bind HTTP routes (`rotations.controller.ts`); the reminder controller is bound to the `node-cron` schedule; views produce rendered pages and payloads. The existing `src/api/` handlers are renamed and split into these controllers during the retrofit task |
+| Responsive breakpoints | Existing CSS uses fixed `960px` containers, flagged as a retrofit item to convert to `minmax()`/`%`-based layout for the 768px/1024px breakpoints |
+| Accessibility | WCAG 2.2 AA is a DoD row; axe runs in CI on the production build; a keyboard pass per screen before it is marked done |
 | Config/env file | `src/config/env.ts` already exists and is correct; no change needed |
 
 This table itself is what gets transcribed into CLAUDE.md's Project Structure, Message Area

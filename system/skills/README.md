@@ -3,7 +3,7 @@
 **Status:** Current
 **Owner:** Haresh V. Parekh
 
-This is the Skills adapter for the Engineering OS. The canonical prose standards live in `../meta/`, `../macro/`, `../meso/`, `../micro/`; this directory is a thin, selectively-loaded routing layer over them, built for how AI coding agents consume context: a little always, more on demand, never all 36 canonical files up front.
+This is the Skills adapter for the Engineering OS. The canonical prose standards live in `../meta/`, `../macro/`, `../meso/`, `../micro/`; this directory is a thin, selectively-loaded routing layer over them, built for how AI coding agents consume context: a little always, more on demand, never all 37 canonical files up front.
 
 New here? Read in this order:
 1. **`MINDMAP.md`**: how the 28 skills relate, which matter most, and their known scope limits.

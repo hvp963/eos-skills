@@ -76,10 +76,12 @@ classification of its inputs unless a documented anonymization step lowers it.
 ## 3. Retention and Deletion
 
 Every dataset declares a retention period sized to its purpose and its regulatory floor, and a
-deletion mechanism that actually removes the data (including from backups after the backup's
+deletion mechanism that removes the data (including from backups after the backup's
 own retention, from replicas, from caches, and from derived datasets). Subject deletion requests
 (erasure) are satisfied by a tested procedure with a stated completion time, and the procedure
 is exercised on a schedule.
+
+A record that must be retained past an erasure request (orders and invoices under a legal retention floor) is anonymized in place: direct identifiers are replaced by a tombstone key, and free-text fields are cleared. The retention floor and the anonymized fields are declared in the data dictionary. Replacement values are unique per row (derived from the surrogate id, e.g. `erased-<id>@invalid`), so unique constraints such as a unique email still hold.
 
 - Failure mode: "we delete on request" that removes the primary row and leaves the data in
   three caches, a warehouse table, and every backup for seven years.
@@ -130,9 +132,16 @@ minimum for the purpose, and the transfer is recorded in the data dictionary. AI
 ## Definition of Done
 
 Data governance is complete when:
+
+### Per change
+
 - every dataset has a classification, an owner, a purpose, a retention period, and a lineage record in the data dictionary
+- the deletion procedure states, per dataset, delete or anonymize-in-place, and why
 - Confidential and Restricted data is encrypted in transit and at rest, and never appears in logs, metric labels, error messages, or unprotected prompts
-- a tested deletion procedure covers primary, replicas, caches, derived datasets, and backups, with a stated completion time
 - lineage is captured by the pipeline and queryable upstream and downstream
-- access to sensitive data is role-based, purpose-bound, expiring, reviewed on a schedule, and audited
 - every third-party or model transfer is recorded with the receiving party's controls confirmed
+
+### Standing (release and audit)
+
+- a tested deletion procedure covers primary, replicas, caches, derived datasets, and backups, with a stated completion time
+- access to sensitive data is role-based, purpose-bound, expiring, reviewed on a schedule, and audited

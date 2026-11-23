@@ -131,6 +131,8 @@ why, because they have no record of what they are paying interest on.
 
 ## Definition of Done (technical debt)
 
+All items are Standing (release and audit): they describe the team's ongoing practice, verified at release and by `eng-os-audit`, not by each task.
+
 - [ ] Every technical debt item has a description, owner, priority, and creation date
 - [ ] Deliberate debt has an ADR and a resolution target at the point it is incurred
 - [ ] The team reserves a defined percentage of sprint capacity for debt reduction

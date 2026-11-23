@@ -11,17 +11,21 @@ stages:
   - lint:            eslint + tsc --noEmit; fails the build on any error
   - test:             vitest run (unit + integration against an ephemeral SQLite file)
   - build:            next build; artifact tagged with the git SHA (app-${GIT_SHA}.tar.gz)
-  - deploy_stage:      unpack tagged artifact to the stage host; run DB migrations; restart process
-  - health_check:      poll stage's /health/ready for up to 60s before proceeding
-  - promote_prod:      copy the *same* SHA-tagged artifact to prod (never rebuilt); run migrations; restart
-  - health_check_prod: poll prod's /health/ready for up to 60s; on failure, trigger rollback
+  - scan:              npm audit (fails on critical) + secret scan of the source tree
+  - migrate_stage:     apply the artifact's bundled migrations to the stage database; stop on failure
+  - deploy_stage:      unpack tagged artifact to the stage host; restart process
+  - health_check:      poll stage's /health/ready for up to 60s, then run the smoke test
+  - migrate_prod:      apply the same bundled migrations to the prod database; stop on failure
+  - promote_prod:      copy the *same* SHA-tagged artifact to prod (never rebuilt); restart
+  - health_check_prod: poll prod's /health/ready for up to 60s, then the smoke test; on failure, trigger rollback
 ```
-Each stage gates the next: a lint failure never reaches `build`, a failed stage health check
-never reaches `promote_prod`.
+Each stage gates the next: a lint failure never reaches `build`, a failed scan never reaches a
+database, a failed migration never starts a deploy, and a failed stage health check never reaches
+`promote_prod`.
 
 ## Concrete Health Check
 
-`GET /health/ready` for this app actually verifies, in order:
+`GET /health/ready` for this app verifies, in order:
 1. the SQLite file at `DATABASE_PATH` is present and a `SELECT 1` query succeeds against it
 2. the most recent migration in the `migrations` table matches the migration bundled in this
    build's artifact (catches a deploy that shipped code expecting a schema that wasn't migrated)
@@ -32,6 +36,11 @@ It returns `503` if any check fails, `200` only if all three pass. This is disti
 `/health/live`, which only checks that the Node process is running and accepting connections:
 `/health/live` returning `200` while the SQLite file is locked or missing is exactly the false
 confidence this two-tier split is meant to prevent.
+
+Every check above is this instance's own state (its own SQLite file, its own migration level,
+its own server). The smoke test that the pipeline runs once after readiness passes is the one
+place a critical path is exercised end to end: it creates a test record through the public API,
+reads it back, and deletes it.
 
 ## Concrete Rollback Trigger
 

@@ -119,7 +119,7 @@ The ability to understand system behavior through measurable signals.
 Latency spikes can be traced to a specific service dependency using metrics, logs, and traces.
 
 ### Notes
-Observability is not just monitoring dashboards; it includes debugability and explanation.
+Observability includes debuggability and explanation as well as monitoring dashboards.
 
 ---
 
@@ -663,14 +663,14 @@ Examples must never override guardrails, contracts, or logic.
 
 ---
 
-## Precedence Order (IDS)
-The authoritative order used to resolve conflicts across IDS sections.
+## Authority (IDS)
+The rules that decide which IDS section governs when two sections conflict: GUARDRAILS holds the highest constraint authority; Core sections govern Extended sections; constraints override preference and guidance; GUIDELINES & INSTRUCTIONS and FEW SHOT EXAMPLES never override constraints or logic. A conflict these rules do not settle is a defect in the spec.
 
 ### Example
-Definitions -> Role -> Objective -> Guardrails -> Input -> Assumptions -> Reasoning Policy -> Derived Logic -> Output -> Guidelines -> Examples.
+GUIDELINES says "name the component that failed, so customers understand the cause"; GUARDRAILS forbids technical implementation details beyond what explains customer impact. GUARDRAILS governs, and the author rewrites the GUIDELINES line so the two agree.
 
 ### Notes
-Precedence is distinct from document formatting order.
+Authority is distinct from both document order (how a spec is written and read) and execution order (the Execution Dependency Chain). Neither of those is a vote order. See `meso/ai-deterministic-systems.md`, Three Orders.
 
 ---
 
@@ -678,10 +678,10 @@ Precedence is distinct from document formatting order.
 The dependency-driven sequence by which IDS sections influence runtime execution.
 
 ### Example
-Definitions inform role, role constrains objective, objective is bounded by guardrails, and so on.
+Resolve definitions and role -> fix the objective -> apply guardrails -> validate the input contract -> apply allowed assumptions -> resolve ambiguity by reasoning policy -> execute derived logic -> enforce the output contract. GUIDELINES & INSTRUCTIONS and FEW SHOT EXAMPLES influence phrasing only.
 
 ### Notes
-Execution is driven by dependency, not just section placement.
+Execution is driven by dependency, not by section placement, and it is not a conflict-resolution order (see Authority (IDS)).
 
 ---
 
@@ -888,7 +888,7 @@ The `.ids` file is the source of truth for what the AI model should do. The harn
 ---
 
 ## Project Root Convention
-The standard that every folder in a project has a declared purpose before the first file is created. Folders are named by artifact type (`ids/`, `lib/`, `input/`, `output/`, `docs/`, `tests/`) not by team or date.
+The standard that every folder in a project has a declared purpose before the first file is created. Folders are named by artifact type (`ids/`, `src/`, `input/`, `output/`, `docs/`, `tests/`) not by team or date.
 
 ### Example
 A project declaring `src/` for source modules, `ids/` for AI-IDS specs, `input/` for raw data, `output/` for pipeline results, and `docs/` for ADRs and contracts, all before writing any code.
@@ -1069,7 +1069,7 @@ See `meso/database-design.md`, `meso/deployment.md`.
 The number of distinct time series a metric produces, equal to the product of its labels' distinct values.
 
 ### Example
-`http_requests_total{route, status}` with 40 routes and 8 statuses is 320 series; adding `user_id` makes it unbounded.
+`http.server.request.duration` with `http.route` (40 route templates) and `http.response.status_code` (8 statuses) is 320 series per histogram bucket; adding `user_id` makes it unbounded.
 
 ### Notes
 Unbounded identifiers belong on logs and traces, never on metric labels. See `meso/observability.md`.
@@ -1171,7 +1171,7 @@ The set of canonical nouns and verbs a project fixes before implementation, with
 A lock that picks "Runbook" and rejects "playbook" because "playbook" already means incident-response playbooks elsewhere in the organization.
 
 ### Notes
-Produced in `eng-os-plan-app` Phase 4, recorded in CLAUDE.md, and enforced by `eng-os-code-conventions`. A rename after the lock is a single complete pass across code, UI, docs, and tests.
+Produced in `eng-os-plan-app` Phase 4, recorded in CLAUDE.md, and enforced by `eng-os-code-conventions`. A rename after the lock is one complete change across code, UI, docs, and tests; an alias window applies only to a public contract other systems consume, and ends on a declared date.
 
 ---
 

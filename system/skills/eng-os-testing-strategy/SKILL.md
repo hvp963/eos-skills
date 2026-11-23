@@ -1,6 +1,6 @@
 ---
 name: eng-os-testing-strategy
-description: "Use when writing or reviewing tests: what unit, integration, contract, property, and AI-evaluation layers must each cover."
+description: "In a project governed by the Engineering OS, use when writing or reviewing tests: what unit, integration, contract, property, and AI-evaluation layers must each cover."
 sources: [meso/testing-strategy.md]
 globs: ["**/*test*", "**/tests/**", "**/__tests__/**", "**/*.spec.*", "**/conftest.py"]
 always_apply: false
@@ -88,15 +88,20 @@ Use it for design conformance (`eng-os-design-system`), accessibility known viol
 
 ## Definition of Done
 
+### Per change
+
 - [ ] Every public function has at least one happy-path and one failure-path unit test
 - [ ] Unit tests mock only at the external boundary and make no real network calls
 - [ ] Integration tests use real components in a controlled, reset environment
 - [ ] Producer/consumer schema contracts are machine-verified in CI
 - [ ] AI evaluation asserts structural and behavioral properties with explicit thresholds
-- [ ] The test suite runs in CI on every commit with a defined pass/fail gate
 - [ ] The smallest relevant test scope was run first for this change; a full-suite run (if done) has a stated reason
+- [ ] A rule adopted on code that already breaks it is held by a ratchet baseline that only falls and is never regenerated to pass
+
+### Standing (release and audit)
+
+- [ ] The test suite runs in CI on every commit with a defined pass/fail gate
 - [ ] Load, spike, and soak tests ran in stage against the Scale Targets before launch and run on a schedule, with SLO-based pass criteria
 - [ ] Flaky tests are quarantined to a non-blocking suite with an owner and fix-by date; no retry-until-green in the main pipeline
-- [ ] A rule adopted on code that already breaks it is held by a ratchet baseline that only falls and is never regenerated to pass
 
 For a worked example, see `references/example.md`.

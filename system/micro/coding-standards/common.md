@@ -45,12 +45,17 @@ Configuration must be resolved once at startup. Behavior must not vary based on 
 Every codebase must define `EXECUTION_MODE` with three valid values: `dev`, `stage`, `prod`.
 
 - must read from environment at startup
-- must drive log level, error verbosity, and feature behavior
-- must default to `dev` if not set
+- must drive log level and error verbosity; feature switches belong to feature flags, not to the mode
+- required: fail at startup if unset or not one of `dev`, `stage`, `prod`; there is no default, and `.env.example` sets `dev`
+- must be read once, in the config module, and imported everywhere else
 - must not be hardcoded anywhere in logic code
 
+An unset or mistyped mode must never fall back to `dev`: in production that would mean debug logs, verbose errors, and local `.env` loading.
+
 ```
-EXECUTION_MODE = getenv("EXECUTION_MODE", default="dev")
+EXECUTION_MODE = getenv("EXECUTION_MODE")   // required: no default
+if EXECUTION_MODE not in ("dev", "stage", "prod"):
+    fail startup: "EXECUTION_MODE must be one of dev, stage, prod"
 
 if EXECUTION_MODE == "dev":    LOG_LEVEL = DEBUG
 if EXECUTION_MODE == "stage":  LOG_LEVEL = INFO
@@ -85,13 +90,15 @@ Named values that vary per deployment or integration area must live in a dedicat
 - naming convention: `{AREA}_{PROPERTY}` in UPPER_SNAKE_CASE
 
 ```
-// constants module
-MAX_RETRIES      = 3
+// constants module: fixed per release, identical in every environment
 RETRY_BASE_MS    = 100
 RETRY_CAP_MS     = 10000
 RETRY_BUDGET_MS  = 30000
-TIMEOUT_MS       = 5000
-BATCH_SIZE       = 100
+
+// config module: environment-derived or deployment-tunable
+API_NUM_RETRIES  = getenv("API_NUM_RETRIES", default=2)    // retries after the first call
+API_TIMEOUT_MS   = getenv("API_TIMEOUT_MS", default=5000)
+BATCH_SIZE       = getenv("BATCH_SIZE", default=100)        // tuned by operators (runbook), so config
 ```
 
 **Which module: constants vs config.** A project may have both a `constants` module and a
@@ -105,16 +112,18 @@ BATCH_SIZE       = 100
   the only place `process.env` / `os.environ` may be read for these values (see Standard 2 for
   secrets specifically).
 
-If a project has only one such module, both kinds of values may live there; the rule is "one
-location per kind, never split across more than one file per kind," not "exactly two files always."
+**One location per kind.** Constants live in `src/shared/constants/`: one file, or one file per
+app area (`rotations.ts`, `engineers.ts`). Config lives in `src/config/`. A constant used by one
+file only, and not user-facing, sits at the top of that file; it moves to `shared/constants/` on
+its second user (Standard 12). User-facing strings always live in `shared/constants/`, even at one
+call site.
 
 **All user-facing strings are constants.** Every label, button/link text, heading, placeholder,
 tooltip, and success/warning/info/error message a user can see is a named export in the constants
 module, sectioned by app area (`{AREA}_LABELS`, `{AREA}_MESSAGES`, etc.), never a literal string
 inline in a component or page. This holds even when the string appears at only one call site: it
-still moves out of the component, per the single-use placement rule above (top of the constants
-file's section, not the top of the component file, since UI strings are page/component content,
-not business logic). Exception: internal identifiers that are not user-facing; test names, log
+still moves out of the component into `shared/constants/` (the single-use exception above covers
+internal constants only, since UI strings are page/component content, not business logic). Exception: internal identifiers that are not user-facing; test names, log
 messages, code comments (governed by `meso/code-conventions.md`); stay out of this rule.
 
 **Message code prefix.** Every success, warning, info, and error message (any `{AREA}_MESSAGES`
@@ -136,10 +145,13 @@ one codebase. Area prefixes are declared once per project (e.g. `CST` = Customer
 per-area: the area prefix identifies where a message lives, the sequence number is the next
 unused value project-wide (e.g. after `CST000001`, the next message created anywhere, even in the
 Order area, is `ORD000002`, not `ORD000001`). Never reset or reuse a sequence number, and never let
-two areas independently restart at `000001`.
+two areas independently restart at `000001`. Work running in parallel lanes allocates nothing
+from this sequence: a lane's new message carries a placeholder code (`CST??????`), and the task
+that merges the lanes assigns the real codes in merge order and advances the counter
+(`eng-os-execute-feature`, Parallel Lanes).
 
 ```
-// constants/rotations.ts
+// src/shared/constants/rotations.ts
 export const ROTATIONS_LABELS = {
     PAGE_TITLE:      "Rotations",
     CREATE_BUTTON:   "New Rotation",
@@ -147,9 +159,10 @@ export const ROTATIONS_LABELS = {
 export const ROTATIONS_MESSAGES = {
     SAVE_SUCCESS:    { code: "ROT000001", text: "Rotation saved." },
     SAVE_ERROR:      { code: "ROT000002", text: "Could not save rotation. Try again." },
+    SERVICE_RETIRED: { code: "ROT000004", text: "This service is retired. Choose an active service." },
 }
-// constants/engineers.ts — created between ROT000002 and the next rotations message,
-// so it takes the next project-wide number, not a fresh ENG000001
+// src/shared/constants/engineers.ts — created between ROT000002 and ROT000004, so it takes the next
+// project-wide number, not a fresh ENG000001
 export const ENGINEERS_MESSAGES = {
     CONTACT_INVALID: { code: "ENG000003", text: "Enter a valid phone number or email." },
 }
@@ -277,34 +290,38 @@ catch NetworkError as e:
 
 ### 5. Retry Logic
 
-All transient external calls must implement retry with exponential backoff.
+All transient external calls must implement retry with exponential backoff. This standard is the one statement of the retry rule; every other document cites it and does not restate its numbers.
 
-- must default to 3 attempts
-- must be configurable per integration area: `{AREA}_NUM_RETRIES`
-- must use exponential backoff with full jitter: `delay = random(0, min(cap, base * 2^attempt))`; default `base = 100ms`, `cap = 10s`
-- must have a total retry budget (default 30s) after which the call fails regardless of attempts remaining
-- must honor a `Retry-After` header or an explicit deadline from the caller when either is present
-- must not retry non-retryable errors: 4xx responses, authentication failures, validation errors
+- must retry only transient failures on idempotent operations, or on operations carrying an idempotency key
+- must default to 2 retries (3 attempts in all), configurable per integration area as `{AREA}_NUM_RETRIES`, which counts the retries after the first call
+- must use exponential backoff with full jitter: `delay = random(0, min(cap, base * 2^attempt))`; `base = RETRY_BASE_MS` (100ms) and `cap = RETRY_CAP_MS` (10s) are constants
+- must have a total retry budget, `RETRY_BUDGET_MS` (30s, a constant), after which the call fails regardless of retries remaining
+- must honor `Retry-After`: wait the larger of it and the computed delay; if that wait would pass the remaining budget or the caller's deadline, stop and raise
+- retryable failures are timeouts, connection resets, and the statuses `408, 429, 502, 503, 504`; `500` is not retried (an unhandled server fault, rarely transient), and no other 4xx, authentication failure, or validation error is retried
+- must classify by error type, never by matching message text: the repository that wraps the external client (Standard 13) maps each retryable failure to `ServiceUnavailableError`, carrying the `Retry-After` value when present
+- one layer owns retry per call path: a vendor SDK with built-in retry owns its calls (set its retry count from `{AREA}_NUM_RETRIES` and do not wrap them); stacked retries at several layers multiply attempts
 - must log each retry attempt with attempt number and delay
 
 Why jitter: a fixed schedule makes every client that failed at the same instant retry at the same instant, so a brief dependency blip becomes a synchronized retry storm that keeps the dependency down. Full jitter spreads the retries; the cap bounds the wait; the budget bounds the total time a caller can spend retrying.
 
 ```
-RETRIES  = getenv("{AREA}_NUM_RETRIES", default=3)
-BASE_MS  = 100
-CAP_MS   = 10_000
-BUDGET   = 30_000  // total milliseconds across all attempts
-// delay for attempt n: random(0, min(CAP_MS, BASE_MS * 2^n))  (full jitter)
+// constants: RETRY_BASE_MS = 100, RETRY_CAP_MS = 10_000, RETRY_BUDGET_MS = 30_000
+// config:    {AREA}_NUM_RETRIES, default 2 (retries after the first call)
 
-function callWithRetry(operation):
-    for attempt in range(RETRIES):
+function callWithRetry(operation, numRetries = config.{AREA}_NUM_RETRIES, deadlineMs = none):
+    started = monotonicNow()
+    budget  = min(RETRY_BUDGET_MS, deadlineMs) if deadlineMs else RETRY_BUDGET_MS
+    for attempt in range(numRetries + 1):            // the first call plus numRetries retries
         try:
             return operation()
-        catch TransientError as e:
-            if attempt == RETRIES - 1: raise
-            delay = BACKOFF[min(attempt, len(BACKOFF) - 1)]
-            log.warn("retry", attempt=attempt+1, delay_ms=delay, error=e)
-            sleep(delay)
+        catch ServiceUnavailableError as e:          // timeouts, resets, 408, 429, 502, 503, 504
+            if attempt == numRetries: raise
+            delay = random(0, min(RETRY_CAP_MS, RETRY_BASE_MS * 2^attempt))   // full jitter
+            wait  = max(delay, e.retryAfterMs or 0)                          // honor Retry-After
+            if elapsedMs(started) + wait > budget: raise                     // budget or deadline reached
+            log.warn("retrying", attempt=attempt+1, delay_ms=wait, error=e)
+            sleep(wait)
+        // any other error is non-retryable and propagates immediately
 ```
 
 ---
@@ -314,24 +331,15 @@ function callWithRetry(operation):
 All logs must be machine-parseable, timestamped, and level-controlled.
 
 - must emit structured (JSON) logs
-- must include: `timestamp`, `level`, `message`, and relevant context identifiers
+- must include at minimum: `timestamp`, `level`, `message`, `trace_id`, `span_id`, `service`, plus the operation's identifiers as top-level fields
+- must bind `trace_id` and `span_id` once at the entry point, in the language's context store, so every line carries them without a logger argument
 - must control log level via `EXECUTION_MODE` (see Standard 1)
 - must not log secrets, tokens, or personally identifiable information
 
+The full record shape (which adds `version` and `env`) has one owner: `meso/observability.md`, Standard Data Models, Log Record. This standard does not restate it.
+
 #### Log Files
 File-based log layout for batch and AI pipeline jobs (the `logs/` folder and its per-run file naming) is a project-structure concern; see `micro/project-structure.md` Section 5. Log level for those files still follows Standard 1.
-
-#### Standard Log Record Shape
-```
-{
-  "timestamp": "2026-05-30T14:22:01Z",
-  "level":     "INFO",
-  "message":   "processing started",
-  "trace_id":  "abc123",
-  "service":   "order-pipeline",
-  "context":   { ... relevant fields ... }
-}
-```
 
 ---
 
@@ -342,8 +350,8 @@ Environment-specific values, secrets, URLs, timeouts, thresholds, and feature sw
 | Hardcoded (forbidden) | Correct |
 |---|---|
 | `url = "https://api.prod.example.com"` | `url = getenv("SERVICE_URL")` |
-| `timeout = 30` | `timeout = TIMEOUT_MS` (from constants) |
-| `retries = 3` | `retries = getenv("API_NUM_RETRIES", 3)` |
+| `timeout = 30` | `timeout = config.API_TIMEOUT_MS` |
+| `retries = 3` | `retries = config.API_NUM_RETRIES` (default 2, set in the config module) |
 | `key = "sk-abc123"` | `key = getenv("OPENAI_API_KEY")` |
 
 ---
@@ -484,8 +492,6 @@ function lookupUser(request):
 function lookupUser(request):
     if not isUUID(request.user_id):
         raise ValidationError("invalid user_id format")
-    if len(request.user_id) > 36:
-        raise ValidationError("user_id exceeds maximum length")
 
     log.info("lookup", user_id=request.user_id)               // no secret in log
     return db.query("SELECT * FROM users WHERE id = ?", [request.user_id])  // parameterized
@@ -630,22 +636,27 @@ function handleCreateRotation(request, response):
 type Rotation = { id, name, serviceId }
 
 // rotations/repositories/rotation-repository.ts
-function insertRotation(db, input): Rotation
-    return db.insert("rotations", { name: input.name, service_id: input.serviceId })
+function insertRotation(tx, input): Rotation
+    return tx.insert("rotations", { name: input.name, service_id: input.serviceId })
+function findService(tx, serviceId): Service | null
+    return tx.selectOne("services", { id: serviceId })
 
-// rotations/services/rotation-service.ts
-function createRotation(input, rotationRepository):
-    if len(input.name) < 3: throw ValidationError(ROTATIONS_MESSAGES.NAME_TOO_SHORT)
-    return rotationRepository.insert(input)
+// rotations/services/rotation-service.ts: owns the business rules and the transaction boundary
+function createRotation(input, rotationRepository, runInTransaction):
+    return runInTransaction(tx =>
+        service = rotationRepository.findService(tx, input.serviceId)
+        if service is null or service.retired:
+            throw BusinessRuleError(ROTATIONS_MESSAGES.SERVICE_RETIRED)   // business rule: 422
+        return rotationRepository.insertRotation(tx, input))
 
 // rotations/views/rotation-view.ts
 function toRotationResponse(rotation):
     return { id: rotation.id, name: rotation.name }          // whitelist
 
-// rotations/controllers/rotation-controller.ts
+// rotations/controllers/rotation-controller.ts: never sees a transaction
 function handleCreateRotation(request, response):
-    input = parseCreateRotation(request.body)                 // shape validation
-    rotation = rotationService.createRotation(input)          // service, repository already injected
+    input = parseCreateRotation(request.body)                 // shape validation (name 3 to 80 chars): 400
+    rotation = rotationService.createRotation(input)          // repository and transaction runner injected
     response.status(201).send(toRotationResponse(rotation))   // view
 ```
 
@@ -687,7 +698,10 @@ function handleCreateRotation(request, response):
 ## Definition of Done
 
 Code meets this standard when:
-- `EXECUTION_MODE` drives log level and error behavior
+
+All items are Per change: this domain has no Standing (release and audit) items.
+
+- `EXECUTION_MODE` is required, validated at startup against `dev`, `stage`, `prod`, and drives log level and error behavior; an unset or invalid value fails startup
 - no secrets or environment-specific values are hardcoded
 - all constants are in a config or constants module, split consistently between build-time
   constants and environment-derived config if a project has both
@@ -707,7 +721,7 @@ Code meets this standard when:
   once per project with no collisions; the 6-digit sequence is one counter shared across the whole
   project, not restarted per area
 - all external calls have try/catch with specific error types
-- retry logic with exponential backoff is applied to transient calls
+- retry follows Standard 5 (full jitter, cap, budget, `Retry-After`, one owning layer, `{AREA}_NUM_RETRIES` counting retries after the first call)
 - logs are structured and free of secrets
 - every public function has at least one happy-path and one failure-path test
 - every public function has a docstring covering purpose, params, return value, and errors

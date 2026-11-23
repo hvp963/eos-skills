@@ -5,23 +5,35 @@
 ## File Metadata
 
 ```
-Name:     [kebab-case-task-name]          # matches the .ids filename
-Version:  1.0
-Status:   Draft | Review | Approved
-Owner:    [name or team]
-Created:  [YYYY-MM-DD]
-Updated:  [YYYY-MM-DD]
+Name:       [kebab-case-task-name]        # matches the .ids filename
+Version:    1.0                           # bumped on any section change
+Status:     Draft | Review | Approved
+Owner:      [name or team]
+Created:    [YYYY-MM-DD]
+Updated:    [YYYY-MM-DD]
+Version-bump rule: any section change
+Evaluation: [fixture path]; thresholds schema>=[n], violations<=[n], determinism>=[n] over [N] runs
+Budget:     max_input_tokens=[n], max_output_tokens=[n], p95_ms=[n]   # sized from Scale Targets
+Exposes:    spec name+version, timestamp, token counts, provenance (Observability UI Contract)
+Accepts classification: [levels, e.g. Public, Internal]   # eng-os-privacy-and-governance
 ```
 
 ---
 
 ## How to Use
 
-Copy this file to `ids/<task-name>.ids`. Populate every section before deployment.
+Copy this file to `ids/<task-name>.ids`. Populate every section before deployment: all eleven are
+required, and a section that does not apply contains `None` and one line saying why.
 For section-by-section guidance, see `meso/ai-ids-template.md`.
 For file placement and harness conventions, see `micro/project-structure.md` Section 4.
 
-**Precedence order (highest to lowest):** GUARDRAILS → OBJECTIVE → DERIVED LOGIC → REASONING POLICY → ASSUMPTIONS → STRUCTURE OF OUTPUT → STRUCTURE OF INPUT → ROLE → GUIDELINES & INSTRUCTIONS → FEW SHOT EXAMPLES → DEFINITIONS
+**Three orders.** Document order is the section order of this file. Execution order follows data
+dependencies: resolve definitions and role, fix the objective, apply guardrails, validate the
+input contract, apply allowed assumptions, resolve ambiguity by reasoning policy, execute derived
+logic, enforce the output contract. Authority settles conflicts: GUARDRAILS holds the highest
+constraint authority; Core sections govern Extended sections; GUIDELINES & INSTRUCTIONS and FEW
+SHOT EXAMPLES never override a constraint or logic; a conflict these rules do not settle is a
+defect to fix in the spec. See `meso/ai-deterministic-systems.md`, Three Orders.
 
 ---
 
@@ -156,8 +168,9 @@ Output:
 
 ## Author Review Checklist
 
-Run before marking this spec ready for deployment.
+Run before marking this spec ready for deployment. Copied verbatim from `meso/ai-ids-template.md`.
 
+- [ ] All eleven sections present; a section that does not apply contains `None` and one line saying why (ROLE, OBJECTIVE, and STRUCTURE OF OUTPUT are never `None`)
 - [ ] All important terms defined in DEFINITIONS
 - [ ] Exactly one primary objective stated
 - [ ] All hard constraints in GUARDRAILS: none hidden in GUIDELINES or examples
@@ -166,8 +179,10 @@ Run before marking this spec ready for deployment.
 - [ ] All deterministic logic in DERIVED LOGIC as a finite ordered sequence
 - [ ] All allowed assumptions bounded: no open-ended inference permitted
 - [ ] Ambiguity resolution explicit in REASONING POLICY
+- [ ] No two sections give different instructions for the same case unless the authority rules settle which governs
 - [ ] FEW SHOT EXAMPLES could be removed without changing system requirements
-- [ ] Prompt registry entry created in `docs/prompts/<name>.md`
+- [ ] Metadata declares the version-bump rule (any section change), the evaluation fixtures and thresholds, the token and latency budget, the observability exposure, and the data classifications the spec accepts
+- [ ] Prompt registry entry created in `docs/prompts/prompt-NNN-kebab-title.md`
 - [ ] If any pre-processing gate (skip conditions) or post-processing step exists outside this
       call, the spec names it and points to where it lives, without absorbing its logic
 

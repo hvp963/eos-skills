@@ -9,8 +9,8 @@ Starter checklist for a new ETL or data pipeline, part of `eng-os-data-strategy`
   idempotent can't safely be replayed or backfilled, which blocks the most common recovery path
   for bad data.
 - **Failure modes to design against explicitly:** duplicate data, schema drift, stale data, hot
-  partitions. Each should map to a specific mitigation in the Correctness/Scale/Quality sections
-  above, not just be acknowledged.
+  partitions. Each should map to a specific mitigation in the Correctness, Scale, and Quality
+  sections of `../../../micro/templates/etl-template.md`, not just be acknowledged.
 
 See `pipeline-checklist-example.md` for a minimal real pipeline structure (extract/transform/load steps
 with idempotency handling) applying this checklist to a hypothetical dataset.

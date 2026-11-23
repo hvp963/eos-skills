@@ -10,7 +10,7 @@ brackets is replaced, not kept. Canonical source: `../../../meta/claude-code-usa
 
 All code in this project follows the Engineering OS at:
 [absolute path to engineering-os]
-Engineering OS version: [the release tag this project is pinned to, e.g. 1.7.0]
+Engineering OS version: [the release tag this project is pinned to, in the form x.y.z]
 
 Skills are installed per `tools/install.*` in that repository; `eng-os-core` loads first.
 
@@ -22,16 +22,18 @@ audits new work against this list. Update it if the project's scope changes.]
 
 Example:
 - eng-os-core: always active
-- api-design: this service exposes a public REST API
-- database-design: Postgres schema and migrations
-- reliability-engineering: has availability and latency SLOs
-- security-practices: handles user auth and PII
-- privacy-and-governance: stores personal data
-- testing-strategy: CI-enforced test suite
-- coding-standards-nodejs: TypeScript codebase
-- design-system: has a React front end
-- (omitted: ai-ids-authoring, no AI components in this project)
-- (omitted: platform-infrastructure, single-region managed platform with no infrastructure repo yet)
+- eng-os-coding-standards-common: every project that writes code
+- eng-os-coding-standards-nodejs: TypeScript codebase
+- eng-os-api-design: this service exposes a public REST API
+- eng-os-database-design: Postgres schema and migrations
+- eng-os-reliability-engineering: has availability and latency SLOs
+- eng-os-security-practices: handles user auth and PII
+- eng-os-privacy-and-governance: stores personal data
+- eng-os-observability: emits logs, metrics, and traces
+- eng-os-testing-strategy: CI-enforced test suite
+- eng-os-design-system: has a React front end
+- (omitted: eng-os-ai-ids-authoring, no AI components in this project)
+- (omitted: eng-os-platform-infrastructure, single-region managed platform with no infrastructure repo yet)
 
 ---
 
@@ -115,9 +117,9 @@ Next sequence number (single project-wide counter): 000001
 
 ## Project Structure
 
-[Every folder and its purpose, per micro/project-structure.md. For any project with a UI, the
-structure reflects capability-based MVCS (coding-standards-common Standard 13) with all five
-layer folders per capability and, for a UI, the four-region app shell (design-system App Shell).]
+[Every folder and its purpose, per micro/project-structure.md. For every project, the structure
+reflects capability-based MVCS (eng-os-coding-standards-common Standard 13) with all five layer
+folders per capability; a UI adds the four-region app shell (eng-os-design-system App Shell).]
 
 Example (API or worker project, MVCS):
 src/
@@ -134,7 +136,8 @@ src/
       models/          Record structures and domain types
       views/           Output shapes, whitelisted fields
   workflows/           Orchestration across two or more capabilities
-  shared/              errors/, middleware/, events/, utils/ (used by 2+ capabilities)
+  shared/              errors/, middleware/, events/, constants/, and one named module per shared
+                       concern (dates/, retry/); never utils/ (used by 2+ capabilities)
 database/              schema.sql, migrations/, seed.sql
 ids/                   AI-IDS specification files (.ids), plain text, at project root (AI projects only)
 docs/
@@ -160,8 +163,8 @@ src/
     views/
       shell/           AppHeader, AppFooter, NavPanel: the three shared shell regions
       components/      Reusable UI components used on 2+ pages
-    constants/         Sectioned by app area: labels, messages, config, business constants
-  styles/              Global CSS/tokens; no hardcoded styles in components
+    constants/         Sectioned by app area: labels, messages, business constants (config lives in config/)
+    styles/            Global CSS/tokens; no hardcoded styles in components
 docs/
   architecture/        C4 views (context, containers, components): living, text diagrams
   decisions/           Architecture Decision Records
@@ -174,8 +177,8 @@ tests/
 These files are the source of truth for what the system does and how it is shaped. Read the
 relevant one before changing code, and update it in the same PR as the change.
 
-- `.specs/<feature>/`: the requirements, design, and tasks ledgers of each feature, with
-  and `events.jsonl`. `.specs/config.json` holds the project's identities (human or
+- `.specs/<feature>/`: the requirements, design, and tasks ledgers of each feature, with its
+  `events.jsonl` log. `.specs/config.json` holds the project's identities (human or
   agent) and each file's approval mode, `manual` by default. A change to a feature's behavior, a
   bug fix included, starts in the ledgers (`eng-os-spec-feature` Changing a Shipped Feature).
 - `docs/architecture/`: C4 context and container views. Update on any new, removed, or split
@@ -204,8 +207,9 @@ a project that omits `.specs/` states why.]
 
 ## Definition of Done
 
-Run every applicable checklist (from each Active Skill above) before marking any task complete.
-See eng-os-core's Meta Definition of Done for the enforcement rule.
+Run the Definition of Done of each Active Skill above before marking any task complete: its
+**Per change** items for every task, its **Standing** items at release and in `eng-os-audit`. See
+eng-os-core's Meta Definition of Done for the enforcement rule.
 
 ---
 

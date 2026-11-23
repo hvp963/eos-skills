@@ -1,6 +1,6 @@
 ---
 name: eng-os-spec-feature
-description: "Use when a feature is approved in scope (a Product Brief phase from plan-app, or a standalone request on a bootstrapped project) and takes three or more tasks, adds or changes a contract or entity, has user-visible edge-case behavior, or has ambiguous scope. Writes `.specs/<feature>/requirements.md` (EARS requirements with their scenarios), `design.md`, and `tasks.md` as ledgers with one row per entry, and records who did what in an append-only `events.jsonl`, with approval tracked and never blocking work. Also use it to change the spec before any later change alters the behavior of a feature that has a `.specs/` entry. Not for planning a whole new app (eng-os-plan-app) or for a one-task change to a feature that has no spec."
+description: "In a project governed by the Engineering OS, use when a feature is approved in scope (a Product Brief phase from plan-app, or a standalone request on a bootstrapped project) and takes three or more tasks, adds or changes a contract or entity, has user-visible edge-case behavior, or has ambiguous scope. Writes `.specs/<feature>/requirements.md` (EARS requirements with their scenarios), `design.md`, and `tasks.md` as ledgers with one row per entry, and records who did what in an append-only `events.jsonl`, with approval tracked and never blocking work. Also use it to change the spec before any later change alters the behavior of a feature that has a `.specs/` entry. Not for planning a whole new app (eng-os-plan-app) or for a one-task change to a feature that has no spec."
 sources:
   - meta/mental-model.md
   - meta/claude-code-usage.md
@@ -78,8 +78,8 @@ set it: `proposed`, `approved`, `edited`, `started`, `done`, `verified`, or `wit
 Record each event by appending one JSON line to the feature's `events.jsonl`:
 
 ```
-{"ts":"2026-12-02 08:15:00 +00:00","entry":"T6","action":"started","by":"claude-sonnet-5-5"}
 {"ts":"2026-12-01 09:30:00 +00:00","entry":"R1.8","action":"approved","by":"dana.okafor","mode":"manual"}
+{"ts":"2026-12-02 08:15:00 +00:00","entry":"T6","action":"started","by":"claude-sonnet-5-5"}
 ```
 
 - Get the time from the shell, in bash `date -u +"%Y-%m-%d %H:%M:%S +00:00"` and in PowerShell

@@ -1,6 +1,6 @@
 ---
 name: eng-os-privacy-and-governance
-description: "Use when a system stores or processes personal, regulated, or classified data; when declaring a dataset's classification, retention, or lineage; when implementing deletion or subject-access requests; or when sending data to a third party or an AI model."
+description: "In a project governed by the Engineering OS, use when a system stores or processes personal, regulated, or classified data; when declaring a dataset's classification, retention, or lineage; when implementing deletion or subject-access requests; or when sending data to a third party or an AI model."
 sources:
   - meso/data-governance.md
 globs: ["**/*"]
@@ -43,7 +43,7 @@ its inputs unless a documented anonymization step lowers it.
 Every dataset declares a retention period and a deletion mechanism that removes the data from
 primary, replicas, caches, derived datasets, and (after their own retention) backups. Subject
 erasure requests run through a tested procedure with a stated completion time, exercised on a
-schedule.
+schedule. A record that must be retained past an erasure request (orders and invoices under a legal retention floor) is anonymized in place: direct identifiers are replaced by a tombstone key, and free-text fields are cleared. The retention floor and the anonymized fields are declared in the data dictionary. Replacement values are unique per row (derived from the surrogate id, e.g. `erased-<id>@invalid`), so unique constraints such as a unique email still hold.
 - Failure mode: "we delete on request" removes the primary row and leaves three caches, a warehouse table, and seven years of backups.
 
 ## Lineage
@@ -76,9 +76,15 @@ lineage, and a deletion procedure that covers every copy.
 
 ## Definition of Done
 
+### Per change
+
 - [ ] Every dataset has a classification, owner, purpose, retention, and lineage record in the data dictionary
+- [ ] The deletion procedure states, per dataset, delete or anonymize-in-place, and why
 - [ ] Confidential and Restricted data is encrypted in transit and at rest and never appears in logs, metric labels, error messages, or unprotected prompts
-- [ ] A tested deletion procedure covers primary, replicas, caches, derived datasets, and backups, with a stated completion time
 - [ ] Lineage is captured by the pipeline and queryable both directions
-- [ ] Access to sensitive data is role-based, purpose-bound, expiring, reviewed, and audited
 - [ ] Every third-party or model transfer is recorded with the receiver's controls confirmed
+
+### Standing (release and audit)
+
+- [ ] A tested deletion procedure covers primary, replicas, caches, derived datasets, and backups, with a stated completion time
+- [ ] Access to sensitive data is role-based, purpose-bound, expiring, reviewed, and audited

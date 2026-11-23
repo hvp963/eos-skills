@@ -2,25 +2,41 @@
 
 ## 2. Configuration Module
 
+Create `src/config/env.py`. Load once at startup.
+
 ```python
 # src/config/env.py
 import os
 
-# --- required (no default — raises at startup if absent) ---
+from dotenv import load_dotenv
+
+# Load .env when the file exists (local development). load_dotenv never overrides a variable that
+# is already set, so in stage and prod the real environment wins. `.env` is never part of the build artifact.
+load_dotenv()
+
+# --- required (no default: startup fails if absent or invalid) ---
+EXECUTION_MODE = os.environ.get("EXECUTION_MODE", "")
+if EXECUTION_MODE not in ("dev", "stage", "prod"):
+    raise EnvironmentError(f"EXECUTION_MODE must be one of dev, stage, prod; got {EXECUTION_MODE!r}")
 DATABASE_URL    = os.environ["DATABASE_URL"]          # raises KeyError if missing
 SERVICE_API_KEY = os.environ["SERVICE_API_KEY"]
+SERVICE_NAME    = os.environ["SERVICE_NAME"]          # the `service` field on every log record
+
+LOG_LEVEL = {"dev": "DEBUG", "stage": "INFO", "prod": "WARN"}[EXECUTION_MODE]
 
 # --- optional (explicit defaults) ---
-EXECUTION_MODE  = os.getenv("EXECUTION_MODE", "dev")
 TIMEOUT_SECS    = float(os.getenv("API_TIMEOUT_SECS", "30.0"))
 POOL_SIZE       = int(os.getenv("DB_POOL_SIZE", "10"))
 BATCH_SIZE      = int(os.getenv("BATCH_SIZE", "100"))
 
-# --- retry (configurable per area) ---
-API_NUM_RETRIES     = int(os.getenv("API_NUM_RETRIES", "3"))
-DB_NUM_RETRIES      = int(os.getenv("DB_NUM_RETRIES", "3"))
-BACKOFF_MS          = [50, 100, 200, 500]
+# --- retries after the first call, per integration area (eng-os-coding-standards-common Standard 5) ---
+API_NUM_RETRIES = int(os.getenv("API_NUM_RETRIES", "2"))
+DB_NUM_RETRIES  = int(os.getenv("DB_NUM_RETRIES", "2"))
 ```
+
+The retry timing values (`RETRY_BASE_MS`, `RETRY_CAP_MS`, `RETRY_BUDGET_MS`) are constants, not config: they live in `src/shared/constants/` (`eng-os-coding-standards-common` Standard 3).
+
+Use `pydantic BaseSettings` as an alternative when schema validation on config is required.
 
 ## 3. Secrets
 
@@ -48,93 +64,133 @@ def validate_env():
 ## 4. Error Handling
 
 ```python
+# define a base exception for this application
 class AppError(Exception):
     pass
 
 class ServiceUnavailableError(AppError):
-    pass
+    """Retryable: timeouts, connection resets, and the statuses in eng-os-coding-standards-common Standard 5."""
 
-def fetch_data(record_id: str) -> dict:
+    def __init__(self, message: str, retry_after_ms: float | None = None):
+        super().__init__(message)
+        self.retry_after_ms = retry_after_ms
+
+RETRYABLE_STATUSES = {408, 429, 502, 503, 504}   # eng-os-coding-standards-common Standard 5
+
+# wrap all external calls; catch specific types and map them to typed errors
+def fetch_data(record_id: str) -> RecordData:
     try:
         response = external_client.get(record_id, timeout=config.TIMEOUT_SECS)
         response.raise_for_status()
-        return response.json()
+        return RecordData.from_json(response.json())   # a dataclass parsed at the boundary
     except requests.HTTPError as e:
-        log.error("http error fetching record", record_id=record_id, status=e.response.status_code)
+        status = e.response.status_code
+        if status in RETRYABLE_STATUSES:
+            raise ServiceUnavailableError(
+                f"fetch failed for {record_id}", parse_retry_after_ms(e.response.headers.get("Retry-After"))
+            ) from e
+        log.error("http error fetching record", record_id=record_id, status=status)
         raise AppError(f"fetch failed for {record_id}") from e
-    except requests.Timeout as e:
-        log.warn("timeout fetching record", record_id=record_id)
-        raise ServiceUnavailableError("service timeout") from e
+    except (requests.Timeout, requests.ConnectionError) as e:
+        log.warn("transient failure fetching record", record_id=record_id)
+        raise ServiceUnavailableError("service timeout or connection reset") from e
 ```
+
+`parse_retry_after_ms` reads either form of `Retry-After` (seconds or an HTTP date) and returns `None` when the header is absent.
+
+Never use bare `except:` or `except Exception:` without re-raising or a documented reason.
 
 ## 5. Retry with Exponential Backoff
 
+The rule is `eng-os-coding-standards-common` Standard 5; this loop is its one Python form, and it mirrors the Node wrapper. `tenacity` is not used, because its wait cannot honor `Retry-After` without a custom wait function. One layer owns retry: a vendor SDK with built-in retry owns its calls (set its retry count from config and do not wrap them).
+
 ```python
+# src/shared/retry/retry.py
+import random
 import time
-from config import BACKOFF_MS
 
-def call_with_retry(operation, num_retries: int = 3):
-    """
-    Retry a callable up to num_retries times with exponential backoff.
-    Raises on non-retryable errors immediately.
-    """
-    retryable = (ServiceUnavailableError, ConnectionError, TimeoutError)
+from config import env as config
+from shared.constants import RETRY_BASE_MS, RETRY_BUDGET_MS, RETRY_CAP_MS
+from shared.errors import ServiceUnavailableError
 
-    for attempt in range(num_retries):
+RETRYABLE = (ServiceUnavailableError, ConnectionError, TimeoutError)
+
+def call_with_retry(operation, num_retries: int = config.API_NUM_RETRIES, deadline_ms: float | None = None):
+    """Call `operation`, retrying transient failures per eng-os-coding-standards-common Standard 5.
+
+    Args:
+        operation: Zero-argument callable that performs one external call.
+        num_retries: Retries after the first call, so at most num_retries + 1 calls.
+        deadline_ms: The caller's remaining time in milliseconds, when it has one.
+
+    Returns:
+        Whatever `operation` returns.
+
+    Raises:
+        The last retryable error once retries, the budget, or the deadline run out; any
+        non-retryable error at once.
+    """
+    budget_ms = RETRY_BUDGET_MS if deadline_ms is None else min(RETRY_BUDGET_MS, deadline_ms)
+    started = time.monotonic()
+    for attempt in range(num_retries + 1):
         try:
             return operation()
-        except retryable as e:
-            if attempt == num_retries - 1:
+        except RETRYABLE as e:
+            if attempt == num_retries:
                 raise
-            delay = BACKOFF_MS[min(attempt, len(BACKOFF_MS) - 1)] / 1000
-            log.warn("retrying", attempt=attempt + 1, delay_s=delay, error=str(e))
-            time.sleep(delay)
-        except Exception:
-            raise  # non-retryable — surface immediately
-```
-
-Using `tenacity`:
-```python
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
-
-@retry(
-    stop=stop_after_attempt(config.API_NUM_RETRIES),
-    wait=wait_exponential(multiplier=0.05, min=0.05, max=0.5),
-    retry=retry_if_exception_type(ServiceUnavailableError),
-)
-def call_api(payload: dict) -> dict:
-    return client.post(payload)
+            delay_ms = random.uniform(0, min(RETRY_CAP_MS, RETRY_BASE_MS * 2 ** attempt))  # full jitter
+            wait_ms = max(delay_ms, getattr(e, "retry_after_ms", None) or 0)              # honor Retry-After
+            if (time.monotonic() - started) * 1000 + wait_ms > budget_ms:
+                raise                                                                      # budget or deadline
+            log.warn("retrying", attempt=attempt + 1, delay_ms=round(wait_ms), error=str(e))
+            time.sleep(wait_ms / 1000)
 ```
 
 ## 6. Structured Logging
 
+Use `structlog` (preferred) or stdlib `logging` with a JSON formatter.
+
 ```python
+import logging
+
 import structlog
 
-log = structlog.get_logger()
+from config import env as config
 
-# configure once at startup (in main or config)
+def standard_level(logger, method_name, event_dict):
+    # the standard record's level values: DEBUG | INFO | WARN | ERROR
+    level = event_dict["level"].upper()
+    event_dict["level"] = "WARN" if level == "WARNING" else level
+    return event_dict
+
+# configure once at startup (in main or config); field names follow the standard record shape
 structlog.configure(
     processors=[
-        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.contextvars.merge_contextvars,   # adds trace_id and span_id bound at entry
+        structlog.processors.TimeStamper(fmt="iso", key="timestamp"),
         structlog.stdlib.add_log_level,
+        standard_level,
+        structlog.processors.EventRenamer("message"),   # structlog's "event" key becomes "message"
         structlog.processors.JSONRenderer(),
     ],
-    wrapper_class=structlog.BoundLogger,
+    wrapper_class=structlog.make_filtering_bound_logger(logging.getLevelNamesMapping()[config.LOG_LEVEL]),
     context_class=dict,
     logger_factory=structlog.PrintLoggerFactory(),
 )
+log = structlog.get_logger().bind(service=config.SERVICE_NAME, env=config.EXECUTION_MODE)
 
-# usage — always include context identifiers
-log.info("processing started", trace_id=trace_id, record_id=record_id)
-log.error("fetch failed", trace_id=trace_id, error=str(e))
+# usage: the trace ids come from the bound context, never from the call site
+log.info("processing started", record_id=record_id)
+log.error("fetch failed", record_id=record_id, error=str(e))
 ```
 
+#### Log Files (pipeline / AI-adjacent jobs)
 ```python
-# Log files (pipeline / AI-adjacent jobs)
 import logging
 import os
 from datetime import datetime
+
+from config import env as config
 
 def setup_file_logging(prefix: str, log_dir: str = "logs") -> None:
     os.makedirs(log_dir, exist_ok=True)
@@ -142,26 +198,65 @@ def setup_file_logging(prefix: str, log_dir: str = "logs") -> None:
 
     for log_type in ["plan", "reasoning", "execution"]:
         handler = logging.FileHandler(f"{log_dir}/{prefix}_{log_type}_{ts}.log")
-        handler.setLevel(LOG_LEVEL)
+        handler.setLevel(config.LOG_LEVEL)
         logging.getLogger(f"{prefix}.{log_type}").addHandler(handler)
 ```
+
+---
+
+#### Trace Context Propagation
+Bind `trace_id` and `span_id` once at the entry point and carry them through every call
+without threading them through function signatures, using structlog's `contextvars` support.
+Inbound and outbound context travels as W3C `traceparent`/`tracestate` through the OpenTelemetry
+propagator API (`meso/observability.md`, Trace Correlation); `X-Trace-Id` is never emitted.
+
+```python
+import structlog
+from opentelemetry import propagate, trace
+
+tracer = trace.get_tracer("order-service")
+
+# at the entry point (request handler, job start, message consumer)
+def handle_request(request):
+    parent = propagate.extract(request.headers)                      # reads traceparent
+    with tracer.start_as_current_span("handle_request", context=parent) as span:
+        ids = span.get_span_context()
+        structlog.contextvars.clear_contextvars()
+        structlog.contextvars.bind_contextvars(
+            trace_id=format(ids.trace_id, "032x"), span_id=format(ids.span_id, "016x"))
+        return process_record(request.record_id)
+
+# anywhere downstream: no trace_id argument needed
+log.info("record processed", record_id=record_id)
+
+# outbound call: write traceparent and tracestate for the current span
+headers: dict[str, str] = {}
+propagate.inject(headers)
+```
+
+`contextvars` values follow `asyncio` tasks and thread-pool executors created after the bind,
+so the ids survive `await` and `run_in_executor`. Queue messages carry the same context in their
+envelope, written with `propagate.inject`.
 
 ## 7. Type Annotations
 
 ```python
 from typing import Optional
 
-# correct
-def process_record(record_id: str, retries: int = 3) -> dict:
+# correct: typed parameters and a typed return value (a dataclass, never a bare dict)
+def process_record(record_id: str) -> ProcessedRecord:
     ...
 
-def find_user(user_id: str) -> Optional[dict]:
+def find_user(user_id: str) -> Optional[User]:
     ...
 
-# forbidden — no annotations
-def process_record(record_id, retries=3):
+# forbidden — no annotations, and an untyped dict as the result
+def process_record(record_id):
     ...
 ```
+
+Retry is not a parameter of a business function: the repository that makes the external call
+wraps it in `call_with_retry` (§5), whose count comes from config.
 
 ## 8. Testing
 
@@ -275,10 +370,10 @@ from lib.utils import process_order, validate_record, write_csv, load_config
 
 ```python
 # correct — lower modules do not import from higher modules
-# src/ai_cleaner.py
-from . import config         # config is a lower dependency
+# src/capabilities/content_cleaning/repositories/ai_cleaner_repository.py
+from config import env as config     # config is a lower dependency
 
 # forbidden — reversed direction
 # src/config/env.py
-from .ai_cleaner import ...  # config must not depend on business logic
+from capabilities.content_cleaning.repositories.ai_cleaner_repository import ...  # config must not depend on a capability
 ```

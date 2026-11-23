@@ -1,6 +1,6 @@
 ---
 name: eng-os-system-design
-description: "Use when architecting a new system or service BOUNDARY and its trade-offs: C4 modeling, stateless vs. stateful design, fault isolation patterns, event-driven vs. request-response choice. For the checklist to scaffold an already-decided service, see `references/service-checklist.md`. For HTTP/RPC contract specifics, see `eng-os-api-design`."
+description: "In a project governed by the Engineering OS, use when architecting a new system or service BOUNDARY and its trade-offs: C4 modeling, stateless vs. stateful design, fault isolation patterns, event-driven vs. request-response choice. For the checklist to scaffold an already-decided service, see `references/service-checklist.md`. For HTTP/RPC contract specifics, see `eng-os-api-design`."
 sources:
   - meso/system-design.md
   - micro/design-review-template.md
@@ -113,6 +113,8 @@ For a worked example applying this skill's C4/boundary reasoning to a concrete s
 
 ## Definition of Done
 
+### Per change
+
 - [ ] Boundaries are explicit
 - [ ] C4 modeling is clear at Context and Container level
 - [ ] The C4 views are committed in `docs/architecture/` as text diagrams with Status, Owner, and linked ADRs, and match the code as of this change
@@ -123,8 +125,11 @@ For a worked example applying this skill's C4/boundary reasoning to a concrete s
 - [ ] Observability expectations are defined
 - [ ] Cross-service multi-entity updates use a saga or outbox pattern, not a distributed transaction (the single-transaction case is a `eng-os-database-design` and `eng-os-design-system` 3.8 concern)
 - [ ] Bounded contexts are drawn before services; no service straddles two or shares a database with another
+- [ ] Every queue and pool is bounded and its load-shedding behavior is defined
+
+### Standing (release and audit)
+
 - [ ] A capacity model states peak load, data volume, largest tenant, and which component saturates first
 - [ ] Blast-radius isolation is explicit: single region with stated RPO/RTO, or multi-region and/or cells with routing and failover declared
-- [ ] Every queue and pool is bounded and its load-shedding behavior is defined
 
 A worked example of the checklist: `references/service-checklist-example.md`.

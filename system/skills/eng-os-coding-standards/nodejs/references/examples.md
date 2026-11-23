@@ -19,38 +19,53 @@
 
 ## 2. Configuration Module
 
+Create `src/config/env.ts`. Parse every env var once at module load through one schema, and export a typed object.
+
 ```typescript
 // src/config/env.ts
 import * as dotenv from 'dotenv';
+import { z } from 'zod';
 
-// load .env in dev only — never in stage or prod
-if (process.env.EXECUTION_MODE === 'dev' || !process.env.EXECUTION_MODE) {
-    dotenv.config();
-}
+// Load .env when the file exists (local development). dotenv never overrides a variable that is
+// already set, so in stage and prod the real environment wins. `.env` is never part of the build artifact.
+dotenv.config();
 
-// --- required (throws at startup if missing) ---
-function requireEnv(key: string): string {
-    const value = process.env[key];
-    if (!value) throw new Error(`Missing required environment variable: ${key}`);
-    return value;
-}
+const EnvSchema = z.object({
+    // required: startup fails if any is missing or invalid
+    EXECUTION_MODE:    z.enum(['dev', 'stage', 'prod']),
+    DATABASE_URL:      z.string().min(1),
+    SERVICE_API_KEY:   z.string().min(1),
+    ANTHROPIC_API_KEY: z.string().min(1),
+    SERVICE_NAME:      z.string().min(1),
+
+    // optional, with explicit defaults
+    API_TIMEOUT_MS:    z.coerce.number().int().positive().default(5000),
+    DB_POOL_SIZE:      z.coerce.number().int().positive().default(10),
+    BATCH_SIZE:        z.coerce.number().int().positive().default(100),
+
+    // retries after the first call, per integration area (eng-os-coding-standards-common Standard 5)
+    API_NUM_RETRIES:   z.coerce.number().int().min(0).default(2),
+    DB_NUM_RETRIES:    z.coerce.number().int().min(0).default(2),
+});
+
+// one error at startup lists every missing or invalid variable
+const env = EnvSchema.parse(process.env);
 
 export const config = {
-    executionMode:   process.env.EXECUTION_MODE ?? 'dev',
-    databaseUrl:     requireEnv('DATABASE_URL'),
-    serviceApiKey:   requireEnv('SERVICE_API_KEY'),
-
-    // optional with explicit defaults
-    timeoutMs:       parseInt(process.env.API_TIMEOUT_MS ?? '5000', 10),
-    poolSize:        parseInt(process.env.DB_POOL_SIZE ?? '10', 10),
-    batchSize:       parseInt(process.env.BATCH_SIZE ?? '100', 10),
-
-    // retry — configurable per area
-    apiNumRetries:   parseInt(process.env.API_NUM_RETRIES ?? '3', 10),
-    dbNumRetries:    parseInt(process.env.DB_NUM_RETRIES ?? '3', 10),
-    backoffMs:       [50, 100, 200, 500] as const,
+    executionMode:   env.EXECUTION_MODE,
+    databaseUrl:     env.DATABASE_URL,
+    serviceApiKey:   env.SERVICE_API_KEY,
+    anthropicApiKey: env.ANTHROPIC_API_KEY,
+    serviceName:     env.SERVICE_NAME,
+    timeoutMs:       env.API_TIMEOUT_MS,
+    poolSize:        env.DB_POOL_SIZE,
+    batchSize:       env.BATCH_SIZE,
+    apiNumRetries:   env.API_NUM_RETRIES,
+    dbNumRetries:    env.DB_NUM_RETRIES,
 } as const;
 ```
+
+Import from `config/env.ts` everywhere. Never call `process.env` at call sites. An unchecked `parseInt` turns `"abc"` into `NaN` without an error, so numeric values go through the schema. The retry timing values (`RETRY_BASE_MS`, `RETRY_CAP_MS`, `RETRY_BUDGET_MS`) are constants, not config: they live in `src/shared/constants/` (`eng-os-coding-standards-common` Standard 3).
 
 ## 3. Secrets
 
@@ -67,6 +82,8 @@ const apiKey = process.env.SERVICE_API_KEY;
 
 ## 4. Error Handling
 
+Define typed error classes. Every external call inside an async function is wrapped and mapped to a typed error. Other errors propagate to the one error-handling middleware or the entry point's handler; do not catch an error only to rethrow it. Every Promise is awaited or has `.catch()`.
+
 ```typescript
 // errors.ts
 export class AppError extends Error {
@@ -76,28 +93,39 @@ export class AppError extends Error {
     }
 }
 
+// retryable: raised for timeouts, connection resets, and the statuses in eng-os-coding-standards-common Standard 5
 export class ServiceUnavailableError extends AppError {
-    constructor(message: string) {
+    constructor(message: string, public readonly retryAfterMs?: number) {
         super(message, 'SERVICE_UNAVAILABLE');
         this.name = 'ServiceUnavailableError';
     }
 }
 
-// usage
-async function fetchRecord(recordId: string): Promise<Record<string, unknown>> {
+// usage: the external call is wrapped, and each failure maps to a typed error (RecordSchema and RecordDto: §7)
+const RETRYABLE_STATUSES = new Set([408, 429, 502, 503, 504]);   // eng-os-coding-standards-common Standard 5
+
+async function fetchRecord(recordId: string): Promise<RecordDto> {
     try {
         const response = await client.get(`/records/${recordId}`);
-        return response.data;
+        return RecordSchema.parse(response.data);
     } catch (err) {
-        if (isAxiosError(err) && err.response?.status === 503) {
-            log.warn('service unavailable', { recordId });
-            throw new ServiceUnavailableError(`fetch failed for ${recordId}`);
+        if (isAxiosError(err)) {
+            const status = err.response?.status;
+            const transient = err.code === 'ECONNABORTED' || err.code === 'ECONNRESET'
+                || (status !== undefined && RETRYABLE_STATUSES.has(status));
+            if (transient) {
+                throw new ServiceUnavailableError(`fetch failed for ${recordId}`,
+                    parseRetryAfterMs(err.response?.headers['retry-after']));
+            }
         }
-        log.error('unexpected error fetching record', { recordId, error: err });
-        throw err;
+        throw new AppError(`fetch failed for ${recordId}`, 'FETCH_FAILED');
     }
 }
 ```
+
+`parseRetryAfterMs` reads either form of `Retry-After` (seconds or an HTTP date) and returns `undefined` when the header is absent.
+
+All Promise chains must include `.catch()` or be inside `async/await` with try/catch. Unhandled promise rejections must be treated as fatal.
 
 ```typescript
 // register global handler in main entry point
@@ -109,40 +137,51 @@ process.on('unhandledRejection', (reason) => {
 
 ## 5. Retry with Exponential Backoff
 
-```typescript
-import pRetry, { AbortError } from 'p-retry';
-import { config } from './config';
+The rule is `eng-os-coding-standards-common` Standard 5; this is its Node form. Retry libraries such as `p-retry` multiply the delay by a random factor (1x to 2x), which is not full jitter, and cannot honor `Retry-After` within the budget, so use this short wrapper. It mirrors the Python loop: same formula, budget, `Retry-After` handling, and count.
 
-async function callWithRetry<T>(
+One layer owns retry. For a vendor SDK with built-in retry, the SDK owns it: set its retry count and timeout from config (§9) and do not wrap its calls. `callWithRetry` is for clients that do not retry on their own.
+
+```typescript
+// src/shared/retry/retry.ts
+import { config } from '../../config/env';
+import { RETRY_BASE_MS, RETRY_CAP_MS, RETRY_BUDGET_MS } from '../constants';
+import { ServiceUnavailableError } from '../errors/errors';
+import { log } from '../logging/logger';
+
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+export async function callWithRetry<T>(
     operation: () => Promise<T>,
-    numRetries: number = config.apiNumRetries,
+    numRetries: number = config.apiNumRetries,   // retries after the first call
+    deadlineMs?: number,                         // the caller's remaining time, when it has one
 ): Promise<T> {
-    return pRetry(operation, {
-        retries: numRetries,
-        factor: 2,
-        minTimeout: config.backoffMs[0],
-        maxTimeout: config.backoffMs[config.backoffMs.length - 1],
-        onFailedAttempt: (error) => {
-            log.warn('retrying after failure', {
-                attempt: error.attemptNumber,
-                retriesLeft: error.retriesLeft,
-                error: error.message,
-            });
-            // abort immediately for non-retryable errors
-            if (error.message.includes('401') || error.message.includes('403')) {
-                throw new AbortError(error.message);
-            }
-        },
-    });
+    const started = performance.now();
+    const budget = deadlineMs === undefined ? RETRY_BUDGET_MS : Math.min(RETRY_BUDGET_MS, deadlineMs);
+    for (let attempt = 0; ; attempt++) {
+        try {
+            return await operation();
+        } catch (err) {
+            // only the typed retryable error is retried; anything else propagates unchanged
+            if (!(err instanceof ServiceUnavailableError) || attempt === numRetries) throw err;
+            const delay = Math.random() * Math.min(RETRY_CAP_MS, RETRY_BASE_MS * 2 ** attempt); // full jitter
+            const wait = Math.max(delay, err.retryAfterMs ?? 0);                                 // honor Retry-After
+            if (performance.now() - started + wait > budget) throw err;                         // budget or deadline
+            log.warn({ attempt: attempt + 1, delayMs: Math.round(wait), error: err.message }, 'retrying');
+            await sleep(wait);
+        }
+    }
 }
 ```
 
 ## 6. Structured Logging
 
+Use `pino` (preferred) or `winston`. Output must be JSON. Level must be driven by `config.executionMode`.
+
 ```typescript
 // logger.ts
 import pino from 'pino';
 import { config } from './config';
+import { traceContext } from './trace-context';
 
 const levelMap: Record<string, string> = {
     dev:   'debug',
@@ -151,22 +190,27 @@ const levelMap: Record<string, string> = {
 };
 
 export const log = pino({
-    level: levelMap[config.executionMode] ?? 'debug',
+    level: levelMap[config.executionMode],   // the mode is validated at startup, so no fallback
     base: {
-        service: process.env.SERVICE_NAME ?? 'unknown',
+        service: config.serviceName,
         env: config.executionMode,
     },
-    timestamp: pino.stdTimeFunctions.isoTime,
+    // field names follow the standard record shape: timestamp, level (DEBUG | INFO | WARN | ERROR), message
+    timestamp: () => `,"timestamp":"${new Date().toISOString()}"`,
+    messageKey: 'message',
+    formatters: { level: (label) => ({ level: label === 'warn' ? 'WARN' : label.toUpperCase() }) },
+    mixin: () => traceContext.getStore() ?? {},   // trace_id and span_id on every line (below)
 });
 
-// usage — always bind context identifiers
-const reqLog = log.child({ traceId: 'abc123', recordId: '456' });
-reqLog.info('processing started');
-reqLog.error({ error: err.message }, 'fetch failed');
+// usage: the trace ids come from the context store, never from the call site
+log.info({ recordId }, 'processing started');
+log.error({ recordId, error: err.message }, 'fetch failed');
 ```
 
+Secrets must never appear in log payloads. Sanitize before logging objects that may contain sensitive fields.
+
+#### Log Files (pipeline / AI-adjacent jobs)
 ```typescript
-// Log files (pipeline / AI-adjacent jobs)
 import pino from 'pino';
 import { createWriteStream } from 'fs';
 import { mkdirSync } from 'fs';
@@ -184,7 +228,45 @@ function setupFileLogging(prefix: string, logDir = 'logs') {
 }
 ```
 
+---
+
+#### Trace Context Propagation
+Bind the trace context once at the entry point and read it from any depth without passing it
+through every function, using `AsyncLocalStorage`. Inbound and outbound context travels as W3C
+`traceparent`/`tracestate` through the OpenTelemetry propagator API (`meso/observability.md`,
+Trace Correlation); `x-trace-id` is never emitted.
+
+```typescript
+// trace-context.ts
+import { AsyncLocalStorage } from 'node:async_hooks';
+import { context, propagation, trace } from '@opentelemetry/api';
+
+// keys match the standard log record's field names (wire names stay snake_case, ADR-001)
+export const traceContext = new AsyncLocalStorage<{ trace_id: string; span_id: string }>();
+const tracer = trace.getTracer('order-service');
+
+// at the entry point (HTTP middleware, job start, message consumer)
+app.use((req, res, next) => {
+    const parent = propagation.extract(context.active(), req.headers);   // reads traceparent
+    const span = tracer.startSpan('http.request', undefined, parent);
+    const { traceId, spanId } = span.spanContext();
+    res.on('finish', () => span.end());
+    context.with(trace.setSpan(parent, span), () =>
+        traceContext.run({ trace_id: traceId, span_id: spanId }, () => next()));
+});
+
+// outbound call: write traceparent and tracestate for the current span
+const headers: Record<string, string> = {};
+propagation.inject(context.active(), headers);
+```
+
+The store follows `await`, timers, and promise chains started inside `run`, so the logger's mixin
+(§6) adds `trace_id` and `span_id` to every line. Queue messages carry the same context in their
+envelope, written with `propagation.inject`.
+
 ## 7. Runtime Schema Validation
+
+Use `zod` or equivalent to validate external data at boundaries (API requests, API responses, events, DB reads).
 
 ```typescript
 import { z } from 'zod';
@@ -196,15 +278,17 @@ const RecordSchema = z.object({
     metadata:  z.record(z.string()).optional(),
 });
 
-type Record = z.infer<typeof RecordSchema>;
+type RecordDto = z.infer<typeof RecordSchema>;   // not `Record`, which would shadow the built-in type
 
-async function fetchRecord(id: string): Promise<Record> {
+async function fetchRecord(id: string): Promise<RecordDto> {
     const raw = await client.get(`/records/${id}`);
     return RecordSchema.parse(raw.data);  // throws ZodError if invalid
 }
 ```
 
 ## 8. Testing
+
+Use `jest` or `vitest`. External calls must be mocked in unit tests.
 
 ```typescript
 // processor.test.ts
@@ -229,7 +313,8 @@ describe('fetchRecord', () => {
     it('throws AppError when service returns 500', async () => {
         vi.spyOn(client, 'get').mockRejectedValueOnce(new Error('500'));
 
-        await expect(fetchRecord('abc-123')).rejects.toThrow();
+        // 500 is not retryable (eng-os-coding-standards-common Standard 5), so it maps to AppError, not ServiceUnavailableError
+        await expect(fetchRecord('abc-123')).rejects.toBeInstanceOf(AppError);
     });
 });
 ```
@@ -237,24 +322,41 @@ describe('fetchRecord', () => {
 ## 9. Centralized Third-Party Client Instantiation
 
 ```typescript
-// lib/anthropic.ts — instantiated once, imported everywhere
+// right — src/shared/anthropic/client.ts: built once, imported only by repositories
 import Anthropic from '@anthropic-ai/sdk';
-import { config } from '../config';
+import { config } from '../../config/env';
 
 export const anthropic = new Anthropic({
     apiKey: config.anthropicApiKey,
-    maxRetries: config.apiNumRetries,
+    maxRetries: config.apiNumRetries,   // the SDK owns retry (§5); it counts retries after the first call
     timeout: config.timeoutMs,
 });
 ```
 
 ```typescript
-// routes/summarize.ts
-import { anthropic } from '../lib/anthropic';
+// src/capabilities/summaries/repositories/summaries.repository.ts: the one layer that calls the SDK
+import { anthropic } from '../../../shared/anthropic/client';
+import { AppError } from '../../../shared/errors/errors';
 
-export async function summarizeHandler(req: Request): Promise<Response> {
-    const result = await anthropic.messages.create({ /* ... */ });
-    // ...
+export async function createSummary(text: string): Promise<string> {
+    try {
+        const message = await anthropic.messages.create({ /* model, max_tokens, messages built from text */ });
+        return extractText(message);
+    } catch (err) {
+        // the SDK has already retried; what is left maps to a typed error (§4)
+        throw new AppError('summary generation failed', 'SUMMARY_PROVIDER_ERROR');
+    }
+}
+```
+
+```typescript
+// src/capabilities/summaries/controllers/summaries.controller.ts: never touches the SDK
+export function makeSummariesController(summariesService: SummariesService) {
+    return async function handleCreateSummary(req: Request, res: Response): Promise<void> {
+        const input = CreateSummarySchema.parse(req.body);           // shape validation: 400
+        const summary = await summariesService.summarize(input);     // the service calls the repository
+        res.status(201).json(toSummaryView(summary));
+    };
 }
 ```
 

@@ -1,6 +1,6 @@
 ---
 name: eng-os-code-conventions
-description: "Use when naming variables, files, classes, constants, or env vars, or applying comment conventions. Language-agnostic."
+description: "In a project governed by the Engineering OS, use when naming variables, files, classes, constants, or env vars, or applying comment conventions. Language-agnostic."
 sources:
   - meso/code-conventions.md
 globs: ["**/*"]
@@ -18,10 +18,10 @@ language-agnostic; where casing differs by idiomatic language convention, both a
 | Construct | Rule | Examples |
 |---|---|---|
 | Variables / functions | `snake_case` in Python; `camelCase` in TypeScript (ADR-001). Wire names (JSON fields, DB columns, env vars, message codes) stay `snake_case` in both; TypeScript maps once at the validated boundary | `load_checkpoint` / `loadCheckpoint`; JSON `customer_id` becomes `customerId` in the zod transform |
-| Constants | `UPPER_SNAKE_CASE` in all languages | `RETRY_MAX_ATTEMPTS`, `AI_MODEL`, `DEFAULT_TIMEOUT_SECS` |
+| Constants | `UPPER_SNAKE_CASE` in all languages | `RETRY_BASE_MS`, `AI_MODEL`, `DEFAULT_TIMEOUT_SECS` |
 | Classes | `PascalCase` in all languages | `MediaAgent`, `CheckpointManager` |
-| Files / modules | `snake_case` (Python), `kebab-case` (TypeScript/Node) — pick one per project | `media_agent.py`, `media-agent.ts` |
-| Env vars | `UPPER_SNAKE_CASE`, domain-prefixed where ambiguity possible | `AI_MODEL`, `IMAGE_API_KEY`, `RETRY_MAX_ATTEMPTS` |
+| Files / modules | `snake_case` (Python), `kebab-case` (TypeScript/Node); pick one per project | `media_agent.py`, `media-agent.ts` |
+| Env vars | `UPPER_SNAKE_CASE`, domain-prefixed where ambiguity possible | `AI_MODEL`, `IMAGE_API_KEY`, `API_NUM_RETRIES` |
 | Booleans | prefix `is_`, `has_`, `can_`, or `allow_` | `is_valid`, `has_checkpoint`, `can_retry`, `allow_override` |
 
 Never mix snake_case and camelCase within a single file. Never use generic names (`data`, `value`,
@@ -48,7 +48,8 @@ Do not restate what the code already says:
 i += 1  # increment i
 
 # Good — explains why
-retry_delay *= 2  # exponential backoff — doubles on each attempt
+# The provider rejects batches over 500 rows, so split before sending.
+batches = chunk(rows, size=PROVIDER_MAX_BATCH_ROWS)
 ```
 
 **Placement:** explanatory comments go on the line above the code; inline end-of-line comments
@@ -86,8 +87,7 @@ not cosmetic. Decide the canonical term for every core entity, action, and major
 **before implementation begins**, and treat that list as part of the design, on par with a schema.
 Canonical rationale: see `eng-os-plan-app` skill, Phase 4 (Terminology Lock).
 
-A deliberate, versioned rename done in a single complete pass (code identifiers, UI text, docs,
-comments, and tests updated together) is fine. The failure mode is not renaming itself: it's
+An internal identifier, column, or UI term is renamed in one complete change (code, UI, docs, tests together). A deprecation window with an alias applies only to a public contract other systems consume (API field, event, shared column), follows `eng-os-api-design` Versioning Migration, and ends on a declared date. The failure mode is not renaming itself: it's
 incremental, unplanned drift, a name changed "in passing" while doing unrelated work, left to
 coexist with the old name across the codebase with no one able to tell which is current. A rename
 of a core term still warrants an ADR (see `eng-os-documentation-standards` skill) recording why the old
@@ -107,6 +107,8 @@ name was inadequate and confirming the new name is final.
   humans and agents about which is current
 
 ## Definition of Done
+
+All items are Per change: this domain has no Standing (release and audit) items.
 
 - [ ] All names are self-describing without a supporting comment
 - [ ] Casing follows the declared convention for the language and construct type

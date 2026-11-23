@@ -3,13 +3,15 @@
 Source: illustrates `../SKILL.md` Design Tokens and Design System Inheritance sections with
 concrete declarations. Full token table lives in `design-tokens-full.md`.
 
-## Concrete Tokens (as actually declared)
+## Concrete Tokens (as declared)
 
 ```css
 :root {
   --bg:      #f0f4f9;  /* page background */
   --surface: #ffffff;  /* card/panel surface */
   --primary: #7c3aed;  /* primary action, focus rings */
+  --primary-hover: #6d28d9;  /* hover on primary fills; white on it is 7.10:1 */
+  --on-primary: #ffffff;     /* text on primary fills: 5.70:1 */
   --text:    #0f172a;  /* primary body text */
 }
 ```
@@ -19,7 +21,7 @@ concrete declarations. Full token table lives in `design-tokens-full.md`.
 ```css
 .btn-primary {
   background: var(--primary);
-  color: #ffffff;
+  color: var(--on-primary);
   border: none;
   border-radius: 8px;
   padding: 8px 16px;
@@ -29,13 +31,16 @@ concrete declarations. Full token table lives in `design-tokens-full.md`.
 }
 
 .btn-primary:hover {
-  background: var(--primary-light);
+  background: var(--primary-hover);
   box-shadow: var(--shadow-md);
 }
 ```
-Note what makes this compliant: no hardcoded hex values (`var(--primary)`, not `#7c3aed`, inside
-the component rule), radius from the defined scale (`8px` = `md`), and shadow from the two-level
-elevation system only.
+Note what makes this compliant: every colour is a token (`var(--primary)` and `var(--on-primary)`,
+never `#7c3aed` or `#ffffff`, inside the component rule), the hover fill is `--primary-hover`
+because white on `--primary-light` is only 4.23:1, the radius comes from the defined scale (`8px` =
+`md`), and both shadows come from the two-level elevation system. Hex values appear only in the
+token declarations above. Keyboard focus comes from the shared `:focus-visible` rule in
+`base-styles.css`, so the component does not remove the outline.
 
 ## Design System Inheritance — Path-Reference vs. Versioned-Package
 
@@ -46,7 +51,7 @@ pointing at the canonical source, not retyping it:
 ```markdown
 ## Design System
 This app inherits its visual language from the shared design system. Canonical source:
-- Tokens & component patterns: <path-to-engineering-os>/system/skills/design-system/references/design-tokens-full.md
+- Tokens & component patterns: <path-to-engineering-os>/system/skills/eng-os-design-system/references/design-tokens-full.md
 - Base CSS: <path-to-engineering-os>/system/micro/templates/base-styles.css
 
 Do not redeclare token values here. Project-specific overrides (if any) go in

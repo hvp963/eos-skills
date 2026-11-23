@@ -55,9 +55,10 @@ Headers:
 Response: 422 Unprocessable Entity
 {
   "error": {
-    "type": "validation_error",
-    "code": "invalid_sku",
-    "message": "SKU-1002 does not exist in catalog",
+    "type": "business_rule_error",
+    "code": "unknown_sku",
+    "message": "SKU-1002 is not in the catalog.",
+    "message_code": "ORD000011",
     "field": "items[1].sku",
     "api_version": "v1",
     "request_id": "req_3fa8c1"
@@ -65,8 +66,11 @@ Response: 422 Unprocessable Entity
 }
 ```
 
-Every error response carries the same envelope (`type`, `code`, `message`, `api_version`,
-`request_id`) regardless of endpoint: clients write one error-parsing path, not one per endpoint.
+The request is well-formed, so the controller's schema accepts it; the service then finds the SKU
+missing from the catalog, a business rule, so the status is `422`. A request missing `items`
+entirely fails shape validation in the controller and returns `400` with `type:
+"validation_error"`. Every error response carries the same envelope (SKILL.md, Error Contract)
+regardless of endpoint: clients write one error-parsing path, not one per endpoint.
 
 ### Same failure — WRONG (unversioned, inconsistent shape)
 
@@ -89,9 +93,9 @@ GET /v2/orders/ord_7e2b1a90
 { "id": "ord_7e2b1a90", "items": [{ "sku": "SKU-1001", "line": { "quantity": 2, "unit": "each" } }] }
 
 // every v1 response carries deprecation headers until sunset
-Deprecation: true
-Sunset: 2027-01-01
-Link: </v2/orders>; rel="successor-version"
+Deprecation: @1798761600
+Sunset: Fri, 01 Jan 2027 00:00:00 GMT
+Link: </v2/orders>; rel="successor-version", <https://docs.example.com/migrate-v2>; rel="deprecation"
 ```
 
 ### Same change — WRONG (breaking change shipped silently, no version bump)

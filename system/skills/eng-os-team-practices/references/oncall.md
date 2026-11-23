@@ -155,6 +155,8 @@ to known risks.
 
 ## Definition of Done (on-call)
 
+All items are Standing (release and audit): they describe the team's ongoing practice, verified at release and by `eng-os-audit`, not by each task.
+
 - [ ] Every alert has an assigned severity and a tested runbook before going to production
 - [ ] On-call rotation handoffs are written and cover incidents, known issues, and toil
 - [ ] Toil items identified during on-call are filed as tickets and reviewed quarterly

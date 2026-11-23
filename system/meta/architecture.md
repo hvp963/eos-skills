@@ -165,7 +165,7 @@ If a principle states "all system boundaries must be observable," then every mes
 **Key rule:** Meso files contain patterns and trade-offs, not rules. They explain how to make decisions in a domain, not which single decision is always correct. When a meso guide reads like a policy document, it has drifted into macro territory.
 
 **How Meso constrains Micro: example:**
-If the observability guide specifies that structured logs must include `trace_id`, `span_id`, and `severity`, then the Python and Node.js coding standards must implement those fields consistently. A coding standard that uses different field names is non-compliant.
+If the observability guide specifies that structured logs must include `trace_id`, `span_id`, and `level`, then the Python and Node.js coding standards must implement those fields consistently. A coding standard that uses different field names is non-compliant.
 
 ---
 
@@ -187,7 +187,7 @@ If the observability guide specifies that structured logs must include `trace_id
 | --- | --- |
 | `coding-standards/common.md` | 13 language-agnostic standards: configuration (incl. user-facing string/message-code constants), error handling, retry logic, logging, security, testing, documentation baseline, component boundaries/OOD, capability-based MVCS layering |
 | `coding-standards/python.md` | Full Python implementation of common standards; Section 9 = Google-style docstrings; Section 10 = OOP conventions: class naming, dataclasses, dependency direction |
-| `coding-standards/nodejs.md` | Full TypeScript implementation of common standards; Section 9 = JSDoc with same tags (omitting `{type}` since the compiler enforces types) |
+| `coding-standards/nodejs.md` | Full TypeScript implementation of common standards; Section 10 = JSDoc (omitting `{type}` since the compiler enforces types); Python documents the same content in Google style (ADR-002) |
 
 **Docstring standard:** both languages document the same content (purpose, every parameter, the return value, every raised error), per-language syntax decided in `docs/decisions/ADR-002-python-docstring-style.md`. TypeScript uses JSDoc tags (`@param`, `@returns`, `@throws`), parsed by the compiler and IDE tooling. Python uses Google-style docstrings (`Args:`, `Returns:`, `Raises:`), parsed by Sphinx, pdoc, mkdocstrings, and IDE hover.
 
@@ -273,7 +273,7 @@ The AI Instruction Design Set (AI-IDS) is the anchor differentiator of the Engin
 | --- | --- | --- |
 | Meso | `ai-deterministic-systems.md` | Full framework guide: roles, objectives, guardrails, input/output structure, derived logic, reasoning policy, bounded inference |
 | Meso | `ai-ids-template.md` | Authoring-level template for producing an AI-IDS artifact |
-| Micro | `templates/ai-ids-template.md` | Blank scaffold for use during implementation — copy to `ids/<name>.ids` and populate; see meso version for section-by-section guidance |
+| Micro | `templates/ai-ids-template.md` | Blank scaffold for use during implementation: copy to `ids/<name>.ids` and populate; see meso version for section-by-section guidance |
 | Meta | `glossary.md` | AI-IDS terms defined in the shared vocabulary |
 
 **The AI execution chain:**
@@ -353,10 +353,10 @@ The following example shows how a single principle propagates through all four l
 > Observability: the degree to which the internal state of a system can be inferred from its external outputs. Design levers: structured logging, distributed tracing, metric instrumentation, alerting. Trade-off: instrumentation adds latency and complexity; under-instrumented systems fail silently in production.
 
 **Meso / observability.md:**
-> Structured logs must include `trace_id`, `span_id`, `severity`, `service`, and `timestamp` as top-level fields. Logs must not include raw PII. Trace context must be propagated across all service boundaries.
+> Every log record carries `trace_id` and `span_id`; `trace_id` is generated once at the system entry point and propagated with W3C `traceparent` through every downstream call. Secrets, tokens, and PII must never appear in any field.
 
 **Micro / coding-standards/common.md:**
-> Standard 6, Logging: Every function that crosses a service boundary must emit a structured log entry. Required fields: `trace_id`, `span_id`, `severity`, `service`. Forbidden fields: passwords, tokens, full SSNs.
+> Standard 6, Structured Logging: every record includes at minimum `timestamp`, `level`, `message`, `trace_id`, `span_id`, and `service`, with the trace ids bound once at the entry point. Logs must not include secrets, tokens, or personally identifiable information.
 
 **Micro / coding-standards/python.md:**
 > Python implementation of Standard 6 using `structlog` with correlation context propagated via `contextvars`. Code examples provided.

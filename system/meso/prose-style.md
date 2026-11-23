@@ -1,4 +1,3 @@
-<!-- lint-os: allow-em-dash -->  This file documents the em dash rule and must show the banned pattern.
 # Prose Style
 
 **Authors:** Haresh V. Parekh
@@ -113,9 +112,11 @@ Filler intensifiers add no information and read as a verbal tic under repetition
 - Neither of the above fits and the second part is a genuine parenthetical aside, removable without changing the sentence's core claim: use parentheses, not an em dash.
 
 **The only three surviving legitimate uses**, all non-prose or non-clause-joining:
+<!-- lint-os: allow-em-dash-begin -->
 1. A true parenthetical aside so short and so clearly a side comment that parentheses would read as fussier than the dash (rare: most asides should use parentheses per the rule above, not this exception).
 2. A short label preceding a definition in a compact, tabular, or tooltip context (not flowing prose): a dash-separated `Label — definition` format is an acceptable, distinct convention from prose. This exception covers only the dash separating the label from its value, not any em dash that happens to appear inside the definition text itself; that text is ordinary flowing prose and is still subject to the ban above.
 3. A title-bar convention (`Page Name — Site Name`): a labeling convention, not prose.
+<!-- lint-os: allow-em-dash-end -->
 
 **Example**
 
@@ -155,7 +156,7 @@ under one set of principles to remove the manual steps in the workflow. It
 cut deployment time from three days to four hours."
 ```
 
-**Pattern — vague placeholder noun standing in for the concrete thing (not limited to the fixed word list above):** A single abstract noun (commonly "intelligence," "insights," "solutions," "capabilities," "experience") reused repeatedly across headings and body copy in place of naming the actual object the document is about (a score, a tag, a metadata field, a record). Any one word can be a legitimate name; the tell is the same noun doing the job of several different concrete nouns across a document because naming each one was skipped.
+**Pattern: vague placeholder noun standing in for the concrete thing (not limited to the fixed word list above).** A single abstract noun (commonly "intelligence," "insights," "solutions," "capabilities," "experience") reused repeatedly across headings and body copy in place of naming the actual object the document is about (a score, a tag, a metadata field, a record). Any one word can be a legitimate name; the tell is the same noun doing the job of several different concrete nouns across a document because naming each one was skipped.
 
 **Test:** For every recurring instance of the candidate noun, substitute the specific thing it refers to in that sentence. If the substitution is easy and the sentence gets more specific without getting longer, the abstract noun was standing in for something the writer already knew and should name.
 
@@ -180,11 +181,11 @@ Cliché vocabulary substitutes a vague, high-register word for a specific claim,
 
 ### 5. Openings, Reassurance, and Artificial Friendliness
 
-**Pattern — openings and fillers:** "Certainly!", "Absolutely!", "Of course!", "Great question.", "I'd be happy to help.", "Let's dive in.", "Let's break this down.", "Here's the thing." Throat-clearing before the actual content starts.
+**Pattern: openings and fillers.** "Certainly!", "Absolutely!", "Of course!", "Great question.", "I'd be happy to help.", "Let's dive in.", "Let's break this down.", "Here's the thing." Throat-clearing before the actual content starts.
 
-**Pattern — unnecessary reassurance:** "Don't worry.", "You're not alone.", "The good news is…", "Rest assured…", "The key is to…", "The bottom line is…" Comfort phrases inserted regardless of whether the reader signaled needing reassurance.
+**Pattern: unnecessary reassurance.** "Don't worry.", "You're not alone.", "The good news is…", "Rest assured…", "The key is to…", "The bottom line is…" Comfort phrases inserted regardless of whether the reader signaled needing reassurance.
 
-**Pattern — artificial friendliness:** excessive exclamation marks, frequent emojis in professional communication, overenthusiastic agreement, unrequested praise, calling basic ideas "excellent," "thoughtful," or "insightful," "You've got this!", "Happy writing!", "Hope this helps!", "Feel free to reach out if you have any questions."
+**Pattern: artificial friendliness.** excessive exclamation marks, frequent emojis in professional communication, overenthusiastic agreement, unrequested praise, calling basic ideas "excellent," "thoughtful," or "insightful," "You've got this!", "Happy writing!", "Hope this helps!", "Feel free to reach out if you have any questions."
 
 **Rewrite approach:** Delete the opener and start with the actual answer. Delete reassurance that was not requested and was not earned by a preceding hard problem. Match tone to the register of the surrounding document: professional and technical content does not need cheerleading.
 
@@ -205,9 +206,9 @@ These phrases add no information and mark the surrounding text as a chat transcr
 
 ### 6. Excessive Qualification and Forced Balance
 
-**Pattern — excessive qualification:** "Generally speaking…", "In many cases…", "Depending on the context…", "It may be helpful to…", "You might want to consider…", "Potentially…", "Arguably…", "To some extent…", "While results may vary…", "There is no one-size-fits-all answer…" Hedges stacked on a claim that could be stated plainly, or substituted for an actual recommendation.
+**Pattern: excessive qualification.** "Generally speaking…", "In many cases…", "Depending on the context…", "It may be helpful to…", "You might want to consider…", "Potentially…", "Arguably…", "To some extent…", "While results may vary…", "There is no one-size-fits-all answer…" Hedges stacked on a claim that could be stated plainly, or substituted for an actual recommendation.
 
-**Pattern — forced balance:** presenting equal arguments when the evidence strongly favors one; giving several options with no recommendation; avoiding a direct conclusion; adding "pros and cons" when the user asked for a decision; treating a weak alternative and a strong one as equally credible for the sake of appearing neutral.
+**Pattern: forced balance.** presenting equal arguments when the evidence strongly favors one; giving several options with no recommendation; avoiding a direct conclusion; adding "pros and cons" when the user asked for a decision; treating a weak alternative and a strong one as equally credible for the sake of appearing neutral.
 
 **Rewrite approach:** Make the call. If the evidence favors one option, say so and name the trade-off being accepted. Hedge only when the uncertainty is real and material to the reader's decision, not as a reflexive disclaimer.
 
@@ -230,11 +231,11 @@ A reader asking for a decision receives a survey of options instead, and has to 
 
 ### 7. Fake Precision, Authority, and Generic Conclusions
 
-**Pattern — fake precision/authority:** "Research shows…", "Experts agree…", "Studies suggest…", "Industry best practices recommend…", "It is widely recognized that…", "Many organizations have found…", or an unsupported percentage/performance claim, all stated with no named source, study, or number that could be checked.
+**Pattern: fake precision/authority.** "Research shows…", "Experts agree…", "Studies suggest…", "Industry best practices recommend…", "It is widely recognized that…", "Many organizations have found…", or an unsupported percentage/performance claim, all stated with no named source, study, or number that could be checked.
 
-**Pattern — generic conclusions:** "The best choice depends on your specific needs.", "Ultimately, the decision is yours.", "By following these steps, you'll be well on your way…", "With the right approach, success is within reach.", "This can help you make a more informed decision.", "The possibilities are endless.", "The future looks promising." Closing lines that could be appended to any document on any topic without change.
+**Pattern: generic conclusions.** "The best choice depends on your specific needs.", "Ultimately, the decision is yours.", "By following these steps, you'll be well on your way…", "With the right approach, success is within reach.", "This can help you make a more informed decision.", "The possibilities are endless.", "The future looks promising." Closing lines that could be appended to any document on any topic without change.
 
-**Pattern — unsupported certainty:** An absolute or guaranteed outcome stated with no check behind it: "always," "never," "automatically," "guarantees," "fully," "satisfies the requirement," "no competitor does this," "ensures compliance." The sentence reads as confident, and the writer never confirmed it against the code, the data, or the source. In a document that describes a real system, the usual sign is a claim that is stronger than what the system does today (a capability described as live when the signal behind it is not wired, a result described as verified when the check is optional).
+**Pattern: unsupported certainty.** An absolute or guaranteed outcome stated with no check behind it: "always," "never," "automatically," "guarantees," "fully," "satisfies the requirement," "no competitor does this," "ensures compliance." The sentence reads as confident, and the writer never confirmed it against the code, the data, or the source. In a document that describes a real system, the usual sign is a claim that is stronger than what the system does today (a capability described as live when the signal behind it is not wired, a result described as verified when the check is optional).
 
 **Rewrite approach:** Name the actual source, or drop the claim if there is none to name. Replace a generic closing line with a specific one: the actual next step, the actual number, the actual decision made. For an absolute, check it against the code or source before keeping it; if it holds only in part, state the scope and the known gap ("flags likely AI-generated content; a probability signal, not a forensic determination") instead of the guarantee.
 
@@ -300,7 +301,7 @@ This library replaces manual retry loops with a single configurable policy,
 which is why the three call sites in `payments/` should migrate to it.
 ```
 
-**Pattern — verbatim or near-verbatim duplicate content (hard check, not a judgment call):** The same sentence or paragraph reused word-for-word (or with only the heading changed) under two or more different headings, cards, or sections in the same file or across sibling pages meant to be distinct (e.g. per-persona pages, per-card grids, FAQ answers). This is a stronger failure than templated *shape*: it means the content itself was never actually written per-section, only the scaffolding around it. It most often shows up as a placeholder paragraph pasted under several headings during drafting and never replaced.
+**Pattern: verbatim or near-verbatim duplicate content (hard check, not a judgment call).** The same sentence or paragraph reused word-for-word (or with only the heading changed) under two or more different headings, cards, or sections in the same file or across sibling pages meant to be distinct (e.g. per-persona pages, per-card grids, FAQ answers). This is a stronger failure than templated *shape*: it means the content itself was never actually written per-section, only the scaffolding around it. It most often shows up as a placeholder paragraph pasted under several headings during drafting and never replaced.
 
 **Test:** For every section/card/page that shares a heading pattern or grid position with siblings, diff its body text against every sibling's body text. Any two bodies that are identical, or identical apart from swapping one or two words, are a required fix, the same severity as the em-dash rule: fix regardless of how good the individual sentence reads in isolation.
 
@@ -341,7 +342,7 @@ A document that imposes the same heading/bullet/summary skeleton on every sectio
 
 **Pattern:** Starting successive sentences with "This ensures…", "This enables…", "This allows…", "This helps…", "This provides…", "By doing so…"; reflexively structuring comparisons as "Whether you're X or Y…" or "From X to Y…" or "Both X and Y…"; repeating a three-part list in every paragraph; opening consecutive sentences or paragraphs with the same noun or phrase.
 
-**Pattern — symmetry, triads, and stock verbs:** Every list has exactly three items; matched pairs ("X for the reviewer, Y for the campaign") and parallel clauses of equal length in every paragraph; the same small set of stock verbs and adjectives doing the work of different facts ("ensure," "enable," "support," "provide," "streamline," "robust," "seamless").
+**Pattern: symmetry, triads, and stock verbs.** Every list has exactly three items; matched pairs ("X for the reviewer, Y for the campaign") and parallel clauses of equal length in every paragraph; the same small set of stock verbs and adjectives doing the work of different facts ("ensure," "enable," "support," "provide," "streamline," "robust," "seamless").
 
 **Rewrite approach:** Vary the sentence opener and the underlying grammatical shape from one sentence to the next. If several consecutive sentences all describe an effect of the same cause, combine them into one sentence with a list, rather than repeating the templated opener each time. Give a list the number of items the content has (two, four, or five are normal), and name the specific action a stock verb stood in for ("checks," "rejects," "stores," "returns").
 
@@ -362,9 +363,9 @@ Uniform sentence openers across a paragraph create a singsong, templated rhythm 
 
 ### 11. Punctuation and Content-Level Signals
 
-**Pattern — punctuation:** heavy em-dash use (see Section 3, now a hard ban in flowing prose rather than a judgment call); semicolons in casual, non-technical writing where a period reads more naturally; quotation marks placed around ordinary phrases for no reason; a parenthetical aside in every paragraph; frequent colons introducing statements that were not actually itemized or defined; perfectly uniform sentence lengths and perfectly uniform bullet construction throughout a passage.
+**Pattern: punctuation.** heavy em-dash use (see Section 3, now a hard ban in flowing prose rather than a judgment call); semicolons in casual, non-technical writing where a period reads more naturally; quotation marks placed around ordinary phrases for no reason; a parenthetical aside in every paragraph; frequent colons introducing statements that were not actually itemized or defined; perfectly uniform sentence lengths and perfectly uniform bullet construction throughout a passage.
 
-**Pattern — content-level:** no concrete examples anywhere in the passage; no names, dates, numbers, or decisions; observations generic enough to apply to any company or any system; a response that repeats the prompt back in different words instead of answering it; invented context added to make an answer sound more complete than the writer's actual knowledge supports; smooth prose that carefully avoids taking a position; benefits described with no corresponding trade-off; every topic forced into a "framework"; a one-line message inflated into a multi-section strategy document; an unsolicited offer to do more work appended to the end of a finished answer.
+**Pattern: content-level.** no concrete examples anywhere in the passage; no names, dates, numbers, or decisions; observations generic enough to apply to any company or any system; a response that repeats the prompt back in different words instead of answering it; invented context added to make an answer sound more complete than the writer's actual knowledge supports; smooth prose that carefully avoids taking a position; benefits described with no corresponding trade-off; every topic forced into a "framework"; a one-line message inflated into a multi-section strategy document; an unsolicited offer to do more work appended to the end of a finished answer.
 
 **Rewrite approach:** Vary sentence length and bullet phrasing naturally, driven by what each sentence needs to say. Add the specific example, name, date, number, or decision that the generic version was standing in for. If there is no real trade-off, say so explicitly rather than omitting the trade-off question. Match response scope to request scope: a one-line question gets a one-line answer, not a document.
 
@@ -379,7 +380,9 @@ Every rule above has a stated exception, restated together here so the guide doe
 
 - **Contrastive negation:** legitimate for one genuine correction of a likely wrong reader assumption, not as a repeated rhythm or as a headline template.
 - **Filler-word candidates:** legitimate when the word is doing real restrictive or scoping work (Section 2's test: does removing it change the claim?).
+<!-- lint-os: allow-em-dash-begin -->
 - **Em dash:** the only legitimate uses are the three named in Section 3: a rare, genuinely short parenthetical aside; a `Label — definition` pairing in a compact, non-prose context (a UI tooltip, a table cell, a mind-map node); and a title-bar convention like `Page Name — Site Name`. Every other use in flowing prose is a required fix, not a judgment call.
+<!-- lint-os: allow-em-dash-end -->
 - **Cliché vocabulary:** a term on the list is not banned if it is the industry's actual proper noun for the thing (e.g. a product literally named "Cutting Edge"). The rule targets the word used as vague praise, not as a literal reference.
 - **Reassurance and friendliness:** a genuine congratulation for a hard, verified accomplishment, or a content warning that is actually needed, is not the pattern this guide restricts. The failure mode is reflexive insertion regardless of context, not warmth existing at all.
 - **Qualification and balance:** a real "it depends" is legitimate when the two paths genuinely diverge on facts not yet known (e.g. depends on data the reader has and the writer doesn't). The failure mode is hedging to avoid commitment on a question the writer does have enough information to answer.
@@ -447,6 +450,9 @@ An edit that rewrites whole paragraphs to remove a handful of tells replaces the
 ## Definition of Done
 
 A prose pass is complete when:
+
+All items are Per change: this domain has no Standing (release and audit) items.
+
 - no paragraph or heading contains contrastive negation ("X, not Y") more than once unless each instance is independently load-bearing
 - filler intensifiers and minimizers (just, simply, only, really, actually, actual, basically, merely) have been tested per-instance against the removal test in Section 2, and only the load-bearing ones remain
 - no em dash joins two clauses anywhere in flowing prose; every instance has been replaced with the punctuation matching the real relationship (period, colon, semicolon, or parentheses), except for the three named exceptions in Section 3 (rare true parenthetical, label-definition, or title-bar convention)

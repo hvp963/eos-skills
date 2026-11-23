@@ -1,6 +1,6 @@
 ---
 name: eng-os-design-system
-description: "Use when building UI: design tokens, typography, component patterns, color/elevation system, the four-region app shell (header/footer/nav/application panel), responsive breakpoints, reusable primitives and the check that holds them, light/dark themes, or when a new app should inherit visual language from a sibling app."
+description: "In a project governed by the Engineering OS, use when building UI: design tokens, typography, component patterns, color/elevation system, the four-region app shell (header/footer/nav/application panel), responsive breakpoints, reusable primitives and the check that holds them, light/dark themes, or when a new app should inherit visual language from a sibling app."
 sources:
   - meso/design-system.md
 globs: ["**/*.css", "**/*.tsx", "**/*.jsx", "**/components/**"]
@@ -33,7 +33,7 @@ skipping the declaration is a violation.
 ## Component Patterns
 
 - **Cards**: primary container for discrete content (3+ structured fields). `shadow-sm` at rest, `shadow-md` + slight lift on hover. Not for uniform short lists (use a table) or prose (use sections).
-- **Badges**: inline state/category marker, always paired with a readable label, never the sole indicator. Semantic variants only: `badge-improved`, `badge-new`, `badge-behavior`, `badge-breaking`, `badge-fixed`.
+- **Badges**: inline state/category marker, always paired with a readable label, never the sole indicator. Semantic variants only, as named in the declared profile (the default profile's seven are in `references/profile-default.md`); badge text uses its hue's `-text` token so the label reaches 4.5:1 on its own fill.
 - **Tables**: structured data, 3+ comparable columns. Not for 2-column label/value pairs (use a definition list or card).
 - **Callouts**: left-border or inline-tip variants, colored per semantic meaning (purple=info, green=tip, amber=warning, red=breaking/error). Use sparingly; overuse flattens urgency.
 - **Sticky nav header**: brand left, metadata right; no primary actions in a document header; height and elevation per the declared profile.
@@ -58,11 +58,11 @@ Every application (not a single static document/report page) is composed of exac
 each a separate reusable component, never inlined per-page:
 
 - **Common header**: one component, shared across every page/screen. Brand, global search,
-  account/session controls. Per the `eng-os-system-design` UX rule, no create/action flows live here.
+  account/session controls. Per UX and Information Architecture below, no create/action flows live here.
 - **Common footer**: one component, shared across every page/screen. Legal/version/links only;
   never duplicated or re-styled per page.
 - **Navigation panel**: the primary/sidebar nav. Destinations only (links to views), never
-  action triggers: see `eng-os-system-design`'s "Nav items are destinations, not actions" rule.
+  action triggers: see "Nav items are destinations, not actions" in UX and Information Architecture below.
 - **Application panel**: the main content region where each page's actual view renders. This is
   the only region that changes between routes/screens; header, footer, and nav panel do not
   re-render or re-implement per page.
@@ -178,12 +178,12 @@ within one repo or team; use a versioned published package once teams or repos d
 
 ## Definition of Done
 
+### Per change
+
 - [ ] All colors reference CSS custom properties; no hardcoded hex values in component styles
 - [ ] All font sizes map to the defined typographic scale
-- [ ] Cards use `shadow-sm` at rest and `shadow-md` on hover
-- [ ] Badges use only the defined semantic color variants
-- [ ] Page background is `--bg`, content surfaces are `--surface`
-- [ ] Content width, header height, and elevation values match the declared profile
+- [ ] Elevation, badge variants, surface tokens, content width, and header height match the declared profile
+- [ ] Every text token passes the contrast table (canon Section 1.9): 4.5:1 on each surface it is used on; base hues are used only for fills, borders, and bars
 - [ ] Token file is the single source of truth; overrides are in a separate block, not inline
 - [ ] If this app is part of a multi-app suite, its docs point to the canonical token/component source rather than retyping values
 - [ ] For applications (not single static pages): common header, common footer, navigation panel, and application panel each exist as one shared component, not duplicated per page
@@ -191,9 +191,12 @@ within one repo or team; use a versioned published package once teams or repos d
 - [ ] Every screen meets WCAG 2.2 AA (keyboard operable with visible focus, 4.5:1 contrast, meaning never by color alone, accessible names); an automated checker runs in CI
 - [ ] Strings, dates, numbers, and currencies are locale-ready; layout checked once in a right-to-left locale
 - [ ] Nav items are destinations only; multi-entity saves are atomic within one transaction; variable-size grouped UI computes offsets from content
-- [ ] CLAUDE.md declares which design profile this project uses (default, inherited sibling, or its own)
 - [ ] Recurring UI is built from the declared primitives; raw controls carry `ds-raw: <reason>`; primitives hold no hex colour or inline style
-- [ ] Scales and token names are declared once as data; the catalog and reference page render every entry; the conformance check runs on every build against a baseline that only falls
 - [ ] Every theme and palette is token overrides only and has been checked for contrast
+
+### Standing (release and audit)
+
+- [ ] CLAUDE.md declares which design profile this project uses (default, inherited sibling, or its own)
+- [ ] Scales and token names are declared once as data; the catalog and reference page render every entry; the conformance check runs on every build against a baseline that only falls
 
 For a worked example, see `references/example.md`.

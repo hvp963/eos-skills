@@ -43,7 +43,7 @@ Every resource (compute, network, storage, queues, DNS, identity policies, alert
 declared in code, reviewed like application code, and applied by a pipeline, never by a console.
 The infrastructure repository is versioned and tagged alongside the application releases it
 supports. A manual change made during an incident is captured in code before the incident is
-closed, or reverted.
+closed, or reverted. A scheduled plan against each environment (daily for prod) must report no changes; a non-empty plan is an alert and a ticket, because a console change that no one reports is otherwise invisible until a release depends on it.
 
 - Failure mode: "stage mirrors prod" is a sentence until both are the same code with different
   variables; every hand-made console change is drift that surfaces as "works in stage."
@@ -107,8 +107,15 @@ investigate, not a budget line to approve.
 ## Definition of Done
 
 Infrastructure is complete when:
+
+### Per change
+
 - every production resource is declared in a versioned infrastructure repository applied by pipeline
 - environments are one code base with a variables file each, and every difference is listed
 - the region and cell layout matches the system design, and the control plane has no shared failure domain with a cell
+
+### Standing (release and audit)
+
 - every stateful store has a backup meeting the RPO, an immutable off-domain copy, and a scheduled restore drill measured against the RTO
 - cost is attributed by tag and reported per Scale Target unit
+- a scheduled plan runs against each environment (daily for prod) and a non-empty plan alerts and opens a ticket

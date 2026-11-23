@@ -1,5 +1,7 @@
 # Self-Hosted / Open-Weight Models — Model Optimization Tactics
 
+Checked: 2026-11-22 against the provider's documentation. Provider facts change: re-check them at each release (`../../PORTABILITY.md`).
+
 Self-hosted and open-weight models (Llama, Mistral, Qwen, DeepSeek, and similar served via vLLM,
 TGI, Ollama, or custom infrastructure) need different tactics than frontier hosted chat models
 because the operator controls the decoding stack directly and typically does not get automatic
@@ -43,7 +45,10 @@ memory/throughput reasons on self-hosted infrastructure). This means:
 ## No Prompt Caching by Default
 
 Most self-hosted serving stacks do not provide automatic prompt caching equivalent to hosted
-frontier APIs (though some, like vLLM, support prefix caching if explicitly configured). Static-
+frontier APIs. vLLM is the main exception: its automatic prefix caching (`--enable-prefix-caching`,
+or `--no-enable-prefix-caching` to turn it off) was announced as on by default in the V1 engine,
+but the current engine-argument docs do not state the default, so confirm it for the version you
+deploy. Static-
 content-first ordering matters even more here:
 
 - If the serving stack supports prefix/KV caching (vLLM prefix caching, similar features

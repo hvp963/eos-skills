@@ -1,6 +1,6 @@
 ---
 name: eng-os-platform-infrastructure
-description: "Use when creating or changing an infrastructure resource, defining environments, laying out regions or cells, or setting up backup, restore, or disaster recovery. Owns what the deployment pipeline deploys onto; `eng-os-deployment-practices` owns the pipeline itself."
+description: "In a project governed by the Engineering OS, use when creating or changing an infrastructure resource, defining environments, laying out regions or cells, or setting up backup, restore, or disaster recovery. Owns what the deployment pipeline deploys onto; `eng-os-deployment-practices` owns the pipeline itself."
 sources:
   - meso/infrastructure.md
 globs: ["**/*.tf", "**/*.tfvars", "**/pulumi*/**", "**/cdk*/**", "**/infra/**", "**/infrastructure/**", "**/k8s/**", "**/helm/**"]
@@ -24,8 +24,11 @@ Patterns are provider-neutral.
 Every resource (compute, network, storage, queues, DNS, identity policies, alert rules) is
 declared in code, reviewed like application code, applied by a pipeline, never by a console. The
 infrastructure repository is tagged alongside the application releases it supports. A manual
-change made during an incident is captured in code before the incident closes, or reverted.
+change made during an incident is captured in code before the incident closes, or reverted. A
+scheduled plan against each environment (daily for prod) must report no changes; a non-empty plan
+is an alert and a ticket.
 - Failure mode: "stage mirrors prod" is a sentence until both are the same code with different variables.
+- Failure mode: a console change no one reports stays invisible until a release depends on it.
 
 ## Environment Parity
 
@@ -70,8 +73,14 @@ and a restore-drill record.
 
 ## Definition of Done
 
+### Per change
+
 - [ ] Every production resource is declared in a versioned infrastructure repository applied by pipeline
 - [ ] Environments are one code base with a variables file each, and every difference is listed
 - [ ] Region and cell layout matches the system design; the control plane shares no failure domain with a cell
+
+### Standing (release and audit)
+
 - [ ] Every stateful store has a backup meeting the RPO, an immutable off-domain copy, and a scheduled restore drill measured against the RTO
 - [ ] Cost is attributed by tag and reported per Scale Target unit
+- [ ] A scheduled plan runs against each environment (daily for prod); a non-empty plan alerts and opens a ticket

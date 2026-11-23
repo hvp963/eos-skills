@@ -94,7 +94,6 @@ logs/
 
 Ad-hoc folder creation, mixed concerns in a single folder, or structure invented mid-implementation with no declared rationale. Symptom: `utils.py` in the root, config values scattered across modules, output files alongside source code.
 
-
 ---
 
 ## 2. Source Module Organization (`src/`)
@@ -127,7 +126,11 @@ src/
     ├── errors/              ← typed domain errors
     ├── middleware/
     ├── events/              ← internal event bus for asynchronous side effects
-    └── utils/
+    ├── constants/           ← user-facing strings and fixed values, one file or one per app area
+    ├── views/               ← UI only: shell/ (header, footer, nav panel), components/, shared hooks
+    ├── styles/              ← UI only: global CSS and tokens
+    └── <concern>/           ← one named module per shared concern (dates/, money/, retry/,
+                               an external client such as anthropic/); never a utils/ folder
 ```
 
 **Rules:**
@@ -225,21 +228,23 @@ ids/
 **Rules:**
 - One `.ids` file per distinct AI task, not one file for the entire project
 - `.ids` files follow the template in `meso/ai-ids-template.md` exactly: DEFINITIONS, ROLE, OBJECTIVE, GUARDRAILS, STRUCTURE OF INPUT, STRUCTURE OF OUTPUT, DERIVED LOGIC, ASSUMPTIONS, REASONING POLICY, GUIDELINES & INSTRUCTIONS, FEW SHOT EXAMPLES
-- The Python or TypeScript harness module (`src/ai_cleaner.py`) reads the `.ids` file at startup using a `_load_ids(name)` function: it contains no specification content
-- A prompt registry entry in `docs/prompts/<name>.md` is required for every `.ids` file
+- The harness is a repository, because it wraps an external client: `src/capabilities/content_cleaning/repositories/ai_cleaner_repository.py` (TypeScript `ai-cleaner.repository.ts`) reads the `.ids` file at startup using a `_load_ids(name)` function and contains no specification content
+- A prompt registry entry in `docs/prompts/prompt-NNN-kebab-title.md` is required for every `.ids` file
 - `.ids` files are versioned in source control: changes to them are engineering changes that require review
 
 ```
 Correct:
 
 ids/content-cleaner.ids        ← specification (plain text, at project root)
-src/ai_cleaner.py              ← harness (loads the spec, calls the API)
+src/capabilities/content_cleaning/repositories/ai_cleaner_repository.py
+                               ← harness (loads the spec, calls the API)
 docs/prompts/
   prompt-001-content-cleaner.md  ← registry entry
 
 Forbidden:
 
-src/ai_cleaner.py              ← contains the IDS spec as a string constant _IDS_SYSTEM = """..."""
+src/capabilities/content_cleaning/repositories/ai_cleaner_repository.py
+                               ← contains the IDS spec as a string constant _IDS_SYSTEM = """..."""
 ```
 
 #### Why
@@ -290,14 +295,14 @@ Documentation is organized by artifact type, not by team or date. Every subfolde
 ```
 docs/
 ├── architecture/   ← C4 views: context.md, containers.md, components-<container>.md (living)
-├── decisions/      ← Architecture Decision Records (ADR-NNN-title.md)
+├── decisions/      ← Architecture Decision Records (ADR-NNN-kebab-title.md)
 ├── contracts/      ← Data contracts and output schema definitions
 ├── prompts/        ← Prompt registry entries (one per .ids file)
 └── runbooks/       ← Operational guides for production systems
 ```
 
 **Rules:**
-- Every significant technical decision requires an ADR in `docs/decisions/`
+- Every decision that meets the ADR threshold in `meso/documentation.md` (When an ADR Is Required) has an ADR in `docs/decisions/`; a cheaper choice is recorded in the commit message
 - Every production system has Context and Container views in `docs/architecture/`, written as text diagrams per `micro/templates/architecture-template.md` and updated in the same PR as any boundary change
 - Feature specs live in `.specs/<feature-slug>/` at the project root, next to `docs/`: three ledger tables and `events.jsonl`, with one `.specs/config.json` for the project. A change to shipped behavior is a change to the ledgers, by editing rows that are not frozen or adding rows that amend frozen ones (`eng-os-spec-feature`)
 - Every data output produced by the system requires a contract in `docs/contracts/`
@@ -320,11 +325,11 @@ tests/
 ├── conftest.py / setup.ts                ← shared fixtures, database transactions, teardown
 ├── capabilities/
 │   └── <capability>/
-│       ├── controllers/<capability>.controller.test.ts   (Python: test_<capability>_controller.py)
-│       ├── services/<capability>.service.test.ts
-│       ├── repositories/<capability>.repository.test.ts
-│       ├── models/<capability>.model.test.ts
-│       └── views/<capability>.view.test.ts
+│       ├── controllers/<topic>.controller.test.ts   (Python: test_<topic>_controller.py)
+│       ├── services/<topic>.service.test.ts
+│       ├── repositories/<topic>.repository.test.ts
+│       ├── models/<topic>.model.test.ts
+│       └── views/<topic>.view.test.ts
 ├── workflows/<workflow-name>.workflow.test.ts
 └── shared/
     └── middleware/
@@ -337,7 +342,7 @@ tests/
 - Service tests inject a fake or in-memory repository; they never need a database
 - Repository tests run against a real database inside a transaction that rolls back
 - Every external dependency (network calls, file I/O, API calls) must be mocked in unit tests
-- Integration tests may use real dependencies within a controlled environment and must be in a separate subfolder (`tests/integration/`)
+- Repository tests are the integration tests: they sit at the mirrored path and run against a real database inside a rolled-back transaction. Cross-capability flows go in `tests/workflows/`. There is no separate `tests/integration/` folder
 - Test filenames and function names must be descriptive: `test_process_order_raises_when_invalid` is correct; `test_case_1` is not
 
 #### Failure Mode
@@ -357,8 +362,8 @@ A module owns one cohesive cluster of related types and functions. All classes i
 ```
 Correct — one module, one concern:
 src/capabilities/orders/models/orders_model.py     OrderItem (dataclass)
-src/csv_writer.py          write_csv()
-src/ai_cleaner.py          AICleanerError, clean_text_with_ai()
+src/capabilities/exports/repositories/csv_writer_repository.py     write_csv()
+src/capabilities/content_cleaning/repositories/ai_cleaner_repository.py     AICleanerError, clean_text_with_ai()
 
 Forbidden — mixed concerns:
 src/utils.py          everything that didn't have a home
@@ -426,9 +431,9 @@ A `utils.py` module that every other module imports from, creating a coupling hu
 | Python function / method | snake_case verb phrase | `process_order()`, `validate_record()` |
 | TypeScript function / method | camelCase verb phrase | `processOrder()`, `validateRecord()` |
 | Private function / method | leading underscore (Python) | `_strip_html_noise()` |
-| Constant | UPPER_SNAKE_CASE | `MAX_RETRIES`, `BACKOFF_MS` |
+| Constant | UPPER_SNAKE_CASE | `RETRY_BASE_MS`, `RETRY_CAP_MS` (a retry count is config: `API_NUM_RETRIES`) |
 | Environment variable | UPPER_SNAKE_CASE | `API_NUM_RETRIES`, `OUTPUT_CSV` |
-| ADR file | `adr-NNN-kebab-title.md` | `adr-001-content-cleaning-strategy.md` |
+| ADR file | `ADR-NNN-kebab-title.md` | `ADR-001-typescript-casing.md` |
 | IDS file | kebab-case noun phrase | `content-cleaner.ids`, `keyword-generator.ids` |
 | Prompt registry file | `prompt-NNN-kebab-title.md` | `prompt-001-content-cleaner.md` |
 | Test function | `test_<function>_<scenario>` | `test_process_order_raises_when_invalid` |
@@ -455,6 +460,8 @@ Inconsistent naming within a project (some modules snake_case, some PascalCase).
 ---
 
 ## Definition of Done
+
+All items are Per change: this domain has no Standing (release and audit) items.
 
 A project structure meets this standard when:
 - Every folder is declared and its purpose documented in CLAUDE.md before the first file is created

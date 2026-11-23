@@ -70,6 +70,8 @@ environments:
 Rules:
 - no shared secrets between environments
 - no code path that reads `EXECUTION_MODE` and branches on it for security decisions
+- `EXECUTION_MODE` is set explicitly in every environment, test and CI included; an unset or invalid value fails startup (`micro/coding-standards/common.md` Standard 1)
+- `.env` is never part of the build artifact: it exists only on a developer's machine, and stage and prod set their variables in the environment
 - stage must mirror prod's configuration structure, not only its values
 - database connections in stage must never point to prod
 
@@ -107,18 +109,31 @@ pipeline:
             pass: no critical CVEs; no secrets detected in source
             fail: stop; notify security channel
 
+        migrate_stage:
+            run: run_migrations(artifact.migrations, env=stage)
+            pass: schema at the version the artifact expects
+            fail: stop; the deploy does not start (see §7)
+
         deploy_stage:
             run: deploy(artifact, env=stage)
             health_check: wait_for_healthy(env=stage, timeout=5m)
-            pass: health check passes
+            pass: readiness passes and the post-deploy smoke test passes
             fail: rollback stage; stop
+
+        migrate_prod:
+            run: run_migrations(artifact.migrations, env=prod)
+            pass: schema at the version the artifact expects
+            fail: stop; alert on-call
 
         promote_prod:
             run: deploy(artifact, env=prod)
             strategy: canary or blue-green (see patterns below)
             health_check: wait_for_healthy(env=prod, timeout=10m)
+            pass: readiness passes and the post-deploy smoke test passes
             fail: rollback prod; alert on-call
 ```
+
+Migrations are their own gated stages before each deploy, never a step inside the deploy (§7).
 
 The artifact deployed to stage is the same artifact deployed to prod: built once, promoted by reference.
 
@@ -189,26 +204,32 @@ A rollback procedure that has never been tested will fail under the pressure of 
 
 ### 5. Health Checks
 
-Health checks must verify that the service can do its actual work, not just that the process is alive.
+Health checks must verify that this instance can do its actual work, not just that the process is alive.
+
+Readiness (`/health/ready`) reports whether this instance can serve: configuration loaded and validated, its own connection pool initialized and answering within a timeout, migrations at the version the artifact expects, warm-up done. It never checks downstream services or non-critical dependencies: those sit behind breakers and degraded paths (`meso/reliability.md`), and a readiness check on a shared dependency drains every instance at once. Deploy gates use readiness, plus a separate post-deploy smoke test that exercises critical dependencies end to end.
 
 ```
-// liveness — is the process running?
+// liveness: is the process running?
 GET /health/live
 response: 200 { "status": "alive" }
 
-// readiness — can the service handle traffic?
+// readiness: can this instance handle traffic? (its own state only)
 GET /health/ready
-    check: database connection pool responds within timeout
-    check: required downstream services reachable
     check: configuration loaded and validated
-    response (passing): 200 { "status": "ready", "checks": { "db": "ok", "cache": "ok" } }
+    check: own database connection pool responds within timeout
+    check: migrations at expected version
+    response (passing): 200 { "status": "ready", "checks": { "db": "ok", "config": "ok", "migrations": "ok" } }
     response (failing): 503 { "status": "not_ready", "checks": { "db": "timeout" } }
+
+// post-deploy smoke test: run once by the pipeline, not polled by the load balancer
+smoke_test(env):
+    exercise each critical dependency through a real request path (place and read back a test order)
 ```
 
 Deployment gates use `/ready`, not `/live`: a liveness-only gate will pass a service that is alive but cannot reach its database.
 
 #### Failure Mode
-A health check that always returns 200 provides false confidence and allows unhealthy deployments to pass promotion gates silently.
+A health check that always returns 200 provides false confidence and allows unhealthy deployments to pass promotion gates silently. A readiness check that tests a shared downstream service drains every instance when that service blips, turning a partial failure into a full outage.
 
 ---
 
@@ -287,6 +308,7 @@ has ever appeared in a log, a ticket, or a chat is rotated immediately.
 - feature flags without expiry or ownership accumulate as invisible conditional dead code
 - rollback procedures that have never been tested will fail under incident pressure
 - liveness-only health checks pass deployments that cannot reach required dependencies
+- a readiness check that tests a shared downstream service drains every instance when that service blips, turning a partial failure into a full outage
 - canary promotion without automatic rollback criteria requires human vigilance on every deploy
 - schema change and dependent code shipped as one step: errors on old instances during rollout, and no rollback path
 - secrets that cannot be rotated without a deploy stay valid long after they leak
@@ -296,12 +318,18 @@ has ever appeared in a log, a ticket, or a chat is rotated immediately.
 ## Definition of Done
 
 Deployment design is complete when:
-- dev / stage / prod environments are fully isolated with no shared secrets
-- the CI/CD pipeline has explicit pass/fail gates for lint, test, build, scan, and deploy
-- the same build artifact is promoted from stage to prod without rebuild
+
+### Per change
+
 - every feature flag has an owner and an expiry date
-- the rollback path is defined, documented, and has been tested in stage
-- health checks verify real dependencies, not just process liveness
-- canary or blue-green strategy has explicit success criteria and automatic rollback on threshold breach
+- readiness checks only this instance's own state (config, pool, migration version); a post-deploy smoke test covers critical dependencies
 - schema changes follow expand/contract, run as their own gated pipeline stage before the dependent deploy, and are reversible or documented forward-only
+
+### Standing (release and audit)
+
+- dev / stage / prod environments are fully isolated with no shared secrets
+- the CI/CD pipeline has explicit pass/fail gates for lint, test, build, scan, migrate, and deploy
+- the same build artifact is promoted from stage to prod without rebuild
+- the rollback path is defined, documented, and has been tested in stage
+- canary or blue-green strategy has explicit success criteria and automatic rollback on threshold breach
 - every secret has an owner, a rotation interval, and a rotation procedure that does not require a deploy

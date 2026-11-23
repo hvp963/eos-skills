@@ -1,6 +1,6 @@
 ---
 name: eng-os-coding-standards-common
-description: "Use when implementing any code: language-agnostic rules for config loading, error handling, retry, structured logging, testing, security, documentation, user-facing string constants, and capability-based MVCS layering (controllers, services, repositories, models, views). Always load alongside the language-specific coding-standards skill for this project's stack."
+description: "In a project governed by the Engineering OS, use when implementing any code: language-agnostic rules for config loading, error handling, retry, structured logging, testing, security, documentation, user-facing string constants, and capability-based MVCS layering (controllers, services, repositories, models, views). Always load alongside the language-specific coding-standards skill for this project's stack."
 sources:
   - micro/coding-standards/common.md
   - micro/project-structure.md
@@ -26,8 +26,9 @@ defines the rule, the language skill defines the concrete implementation.
 
 ### 1. Execution Mode
 Every codebase must define `EXECUTION_MODE` with values `dev`, `stage`, `prod`.
-- read from environment at startup; default to `dev` if unset
-- drives log level and error verbosity (`dev`→DEBUG, `stage`→INFO, `prod`→WARN)
+- read from environment at startup, once, in the config module; imported everywhere else
+- required: fail at startup if unset or not one of `dev`, `stage`, `prod`; there is no default (`.env.example` sets `dev`), because a silent fallback to `dev` in production means debug logs and verbose errors
+- drives log level and error verbosity (`dev`→DEBUG, `stage`→INFO, `prod`→WARN); feature switches belong to feature flags, not to the mode
 - must never be hardcoded in logic code
 
 ### 2. Secrets and Environment Variables
@@ -42,15 +43,18 @@ Every codebase must define `EXECUTION_MODE` with values `dev`, `stage`, `prod`.
 - documentation/prose pages that describe a config value (a default, a limit, a threshold) must interpolate the real constant/config export at render or build time; never hand-type a copy of the number/string; a docs page is a consumer of the config module like any other call site
 - **constants vs config split**: a `constants` module holds build-time-fixed values that never read
   `process.env`/`os.environ` (app name, taglines, enum literals); a `config` module holds every
-  environment-derived or deployment-tunable value. One location per kind; never split a kind
-  across more than one file. A project with only one such module may hold both kinds in it.
+  environment-derived or deployment-tunable value.
+- **one location per kind**: constants live in `src/shared/constants/` (one file, or one file per
+  app area, e.g. `rotations.ts`, `engineers.ts`); config lives in `src/config/`. A constant used by
+  one file only, and not user-facing, sits at the top of that file and moves to `shared/constants/`
+  on its second user (Standard 12). User-facing strings always live in `shared/constants/`, even at
+  one call site.
 - **all user-facing strings are constants**: every label, button/link text, heading, placeholder,
   tooltip, and success/error/validation message a user can see is a named export in the constants
   module, sectioned by app area (`{AREA}_LABELS`, `{AREA}_MESSAGES`, etc.), never a literal string
   inline in a component or page. This applies even when the string appears at only one call site:
-  it still moves out of the component, per the single-use placement rule above (top of the
-  constants file section, not top of the component file, since UI strings are page/component
-  content, not business logic). Exception: `eng-os-code-conventions`/`eng-os-prose-style` internal identifiers
+  it still moves out of the component into `shared/constants/` (the single-use exception above
+  covers internal constants only, since UI strings are page/component content, not business logic). Exception: `eng-os-code-conventions`/`eng-os-prose-style` internal identifiers
   (test names, log messages, code comments) are not user-facing and stay out of this rule.
 - **message code prefix**: every success, warning, info, and error message (any `{AREA}_MESSAGES`
   entry) carries a unique alphanumeric code as part of its constant value: 3 uppercase letters
@@ -111,30 +115,23 @@ a drift-guard test.
 - never swallow errors without a deliberate, documented reason
 
 ### 5. Retry Logic
-- transient external calls must retry with exponential backoff
-- default 3 attempts, configurable per integration area as `{AREA}_NUM_RETRIES`
-- exponential backoff with full jitter: `delay = random(0, min(cap, base * 2^attempt))`, default `base = 100ms`, `cap = 10s`, total budget 30s; honor `Retry-After` or a caller deadline when present
-- retry is owned by one declared layer per call path (`eng-os-reliability-engineering`); never stacked at client, gateway, and service
-- never retry non-retryable errors: 4xx responses, auth failures, validation errors
+- retry only transient failures on idempotent operations, or on operations carrying an idempotency key
+- default 2 retries (3 attempts in all), configurable per integration area as `{AREA}_NUM_RETRIES`, which counts the retries after the first call
+- exponential backoff with full jitter: `delay = random(0, min(cap, base * 2^attempt))`; `RETRY_BASE_MS` (100ms), `RETRY_CAP_MS` (10s), and the total budget `RETRY_BUDGET_MS` (30s) are constants
+- honor `Retry-After` by waiting the larger of it and the computed delay; if that wait would pass the remaining budget or the caller's deadline, stop and raise
+- retryable: timeouts, connection resets, and statuses `408, 429, 502, 503, 504`; never `500`, any other 4xx, an auth failure, or a validation error
+- classify by error type, never by message text: the repository wrapping the external client maps each retryable failure to `ServiceUnavailableError`, carrying the `Retry-After` value
+- retry is owned by one declared layer per call path (`eng-os-reliability-engineering`); a vendor SDK with built-in retry owns its calls (set its count from `{AREA}_NUM_RETRIES`, do not wrap them); never stacked at client, gateway, and service
 - log every retry attempt with attempt number and delay
 
 ### 6. Structured Logging
 - logs must be structured (JSON), timestamped, level-controlled
-- every record includes `timestamp`, `level`, `message`, and relevant context identifiers
+- every record includes at minimum `timestamp`, `level`, `message`, `trace_id`, `span_id`, `service`, plus the operation's identifiers as top-level fields
+- `trace_id` and `span_id` are bound once at the entry point in the language's context store, so every line carries them without a logger argument
 - log level controlled via `EXECUTION_MODE`
 - never log secrets, tokens, or PII
 
-Standard log record shape:
-```
-{
-  "timestamp": "2026-05-30T14:22:01Z",
-  "level":     "INFO",
-  "message":   "processing started",
-  "trace_id":  "abc123",
-  "service":   "order-pipeline",
-  "context":   { ... relevant fields ... }
-}
-```
+The full record shape (which adds `version` and `env`) has one owner: `eng-os-observability`, `../../eng-os-observability/references/standard-data-models.md`. This standard does not restate it.
 
 File-based log layout for batch and AI pipeline jobs (`logs/` folder, per-run file naming) is a project-structure concern: `../../../micro/project-structure.md` Section 5.
 
@@ -153,18 +150,18 @@ Every public function needs at minimum:
 
 Unit tests must not make real network calls; mock/stub all external dependencies. Integration tests may use real dependencies within a controlled boundary.
 
-### 10. Security Baseline
-- validate all external input for type, length, allowed values before use
-- never pass raw user input to queries, commands, AI prompts, or file paths
-- never log secrets, tokens, passwords, or PII
-- never include secrets in error messages or stack traces
-
-### 11. Documentation Baseline
+### 10. Documentation Baseline
 Documentation ships with the change that introduces or modifies the thing it describes.
 - document every public function (purpose, parameters, return value, error conditions), every public class/module (responsibility), every non-obvious design choice (why, not what), every service/pipeline entry point (module-level summary)
 - do not clutter self-evident code or obvious single-line helpers with comments
 - inline comments explain why, never what; a comment describing what the code does is a signal to rename the code instead
 - **docstring content is uniform across languages, syntax is per-language** (`docs/decisions/ADR-002-python-docstring-style.md`): document purpose, every parameter, the return value, and every error a function can raise, everywhere. TypeScript uses JSDoc tags (`@param`, `@returns`, `@throws`); Python uses Google-style (`Args:`, `Returns:`, `Raises:`), the syntax each language's own tooling actually parses.
+
+### 11. Security Baseline
+- validate all external input for type, length, allowed values before use
+- never pass raw user input to queries, commands, AI prompts, or file paths
+- never log secrets, tokens, passwords, or PII
+- never include secrets in error messages or stack traces
 
 ### 12. Component Boundaries, Reuse, and Object-Oriented Design
 See `../../../meta/glossary.md` for **Component**, **Reusable Unit**, **Object-Oriented Design**.
@@ -248,7 +245,9 @@ See `references/examples.md` for illustrative code for each standard and `refere
 
 ## Definition of Done
 
-- [ ] `EXECUTION_MODE` drives log level and error behavior
+All items are Per change: this domain has no Standing (release and audit) items.
+
+- [ ] `EXECUTION_MODE` is required and validated at startup (no fallback mode) and drives log level and error behavior
 - [ ] no secrets or environment-specific values are hardcoded
 - [ ] all constants live in a config or constants module, split consistently between build-time constants and environment-derived config if a project has both
 - [ ] every value is classified as constant, config, or secret against Standard 3a's litmus test, not placed by convenience or copied pattern
@@ -258,7 +257,7 @@ See `references/examples.md` for illustrative code for each standard and `refere
 - [ ] every success/warning/info/error message carries a unique `{3-letter area}{6-digit sequence}` code (e.g. `CST000001`), assigned once and never reused or renumbered; area prefixes are declared once per project with no collisions; the 6-digit sequence is one counter shared across the whole project, not restarted per area
 - [ ] docs/prose pages describing a config value reference the real constant, not a hardcoded copy
 - [ ] all external calls have try/catch with specific error types
-- [ ] retry logic with full-jitter exponential backoff, a cap, and a total budget applied to transient calls, owned by one layer per call path
+- [ ] retry follows Standard 5 (full jitter, cap, budget, `Retry-After`, one owning layer, `{AREA}_NUM_RETRIES` counting retries after the first call)
 - [ ] logs are structured and free of secrets
 - [ ] every public function has at least one happy-path and one failure-path test
 - [ ] every public function has a docstring covering purpose, params, return value, and errors

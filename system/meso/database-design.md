@@ -305,7 +305,7 @@ Limit join depth in OLTP queries. More than three to four table joins in a singl
 Use LEFT JOIN deliberately, not by default. LEFT JOIN returns NULLs for non-matching rows. Use it only when the absence of a match is a valid and expected result. INNER JOIN is the default when a match is required for correctness.
 
 #### Example
-A report joins `orders` to `users` (one-to-one on `user_id`) and to `order_items` (one-to-many on `order_id`). The cardinality is declared in the design doc. To avoid row multiplication, `order_items` is aggregated in a CTE before joining to `orders`: the CTE produces one row per order, then the outer join to `users` is clean. `user_id` on `orders` is indexed; the join does not scan the full users table.
+A report joins `orders` to `users` (many-to-one on `user_id`: many orders per user) and to `order_items` (one-to-many on `order_id`). The cardinality is declared in the design doc. To avoid row multiplication, `order_items` is aggregated in a CTE before joining to `orders`: the CTE produces one row per order, then the join to `users` is clean. `orders.user_id` is indexed, so filtering a user's orders does not scan `orders`.
 
 #### Failure Mode
 Implicit join syntax hides conditions and makes cross-joins possible by omission.
@@ -374,6 +374,9 @@ partition key; a query with no tenant predicate is rejected at the data-access l
 ## Definition of Done
 
 Database design is complete when:
+
+All items are Per change: this domain has no Standing (release and audit) items.
+
 - key and schema choices are justified
 - indexing strategy aligns to real access patterns
 - partitioning strategy is explicit

@@ -10,8 +10,8 @@
 A guide for making systems measurable, debuggable, and explainable.
 
 ### What This Is Not
-- not just dashboards
-- not just logging
+- not dashboards alone
+- not logging alone
 - not a monitoring tool list
 
 ## Scope
@@ -64,19 +64,18 @@ Record contract violations, schema failures, policy violations, and safety enfor
   "level":      "INFO",                         // DEBUG | INFO | WARN | ERROR
   "message":    "order processing started",
   "trace_id":   "abc123",                       // propagated from entry point; never null
+  "span_id":    "def456",                       // the current operation's span; never null
   "service":    "order-service",
   "version":    "1.4.2",
   "env":        "prod",
-  "context": {                                  // caller-defined; varies by operation
-      "order_id":    "ord-456",
-      "customer_id": "cust-789",
-  }
+  "order_id":   "ord-456",                      // the operation's identifiers: top-level fields,
+  "customer_id": "cust-789"                     // caller-defined, varying by operation
 }
 ```
 
 Rules:
-- `trace_id` is required on every record; never omit
-- `context` carries the identifiers relevant to the operation, not a catch-all
+- `trace_id` and `span_id` are required on every record; never omit (the minimum fields every record carries are `timestamp`, `level`, `message`, `trace_id`, `span_id`, `service`, per `micro/coding-standards/common.md` Standard 6; this shape is the one full record)
+- the operation's identifiers (`order_id`, `customer_id`) are top-level fields beside the standard ones, never a catch-all dump of the request; they never reuse a standard field's name
 - secrets, tokens, and PII must never appear in any field
 
 ### Metric Shape
@@ -95,7 +94,7 @@ Rules:
 }
 ```
 
-Naming convention: `{service}.{operation}.{unit}`; e.g., `order.processing.duration_ms`, `pipeline.validation.error_count`.
+Naming convention: metric names follow the OpenTelemetry semantic conventions where one exists (`http.server.request.duration`, unit seconds, with the `http.route` and `http.response.status_code` attributes). The local `{service}.{operation}.{unit}` rule applies only to custom metrics: e.g., `order.processing.duration_ms`, `pipeline.validation.error_count`. A rate is computed at query time, never emitted as its own metric.
 
 ### Trace Context
 
@@ -117,77 +116,65 @@ Naming convention: `{service}.{operation}.{unit}`; e.g., `order.processing.durat
 
 ### Structured Logging
 
-Initialize the logger once with service context. Bind `trace_id` and operation identifiers at request entry. Pass the bound child logger into downstream functions: do not rebind identifiers at every call site.
+Initialize the logger once with service context. Bind trace context once at entry in the language's context store (`eng-os-coding-standards-python` §6 `contextvars`, `eng-os-coding-standards-nodejs` §6 `AsyncLocalStorage`); downstream functions take no logger argument, and every log line reads the bound ids from the store.
 
 ```
 // initialize once at startup
 log = createLogger(service="order-service", version=SERVICE_VERSION, env=EXECUTION_MODE)
 
-// at request entry — bind trace context and operation identifiers
+// at request entry: extract the caller's trace context, start a span, bind once
 function handleRequest(request):
-    traceId = request.headers.get("X-Trace-Id") ?? generateUUID()
-    reqLog  = log.child(trace_id=traceId, order_id=request.order_id)
+    parent = otel.propagation.extract(request.headers)        // W3C traceparent / tracestate
+    span   = tracer.startSpan("handle_request", parent=parent)
+    bindLogContext(trace_id=span.traceId, span_id=span.spanId, order_id=request.order_id)
 
-    reqLog.info("request received")
+    log.info("request received")
 
     try:
-        result = processOrder(request, log=reqLog)
-        reqLog.info("request completed", duration_ms=elapsed())
+        result = processOrder(request)                        // no logger argument
+        log.info("request completed", duration_ms=elapsed())
         return result
     catch ValidationError as e:
-        reqLog.warn("validation failed", field=e.field, reason=e.message)
+        log.warn("validation failed", field=e.field, reason=e.message)
         raise
     catch Exception as e:
-        reqLog.error("request failed", error=e.message)
+        log.error("request failed", error=e.message)
         raise
+    finally:
+        span.end()
 ```
 
 #### Failure Mode
-Creating a new logger instance per request or per function call instead of passing a child logger loses the bound `trace_id` and makes cross-service log correlation impossible.
+Threading a logger through every function signature means any function that forgets the argument logs without `trace_id`; creating a new logger per call loses the bound ids. Either way cross-service correlation breaks. Binding once in the context store removes both.
 
 ---
 
 ### Trace Correlation
 
-Generate `trace_id` once at the system entry point. Propagate it in headers to every downstream service and in every log record and AI call. Each hop generates its own `span_id` but inherits `trace_id` unchanged.
+Generate `trace_id` once at the system entry point. Propagate it to every downstream service with the W3C `traceparent` and `tracestate` headers, through the OpenTelemetry propagator API, and carry it in every log record and AI call. Each hop gets its own `span_id` and inherits `trace_id` unchanged. Inbound context is extracted the same way. `X-Trace-Id` appears only as a legacy header accepted on input when a caller cannot send `traceparent`; it is never emitted.
 
 ```
-// entry point — generate trace_id if not provided by upstream caller
+// entry point: continue the caller's trace, or start one when there is none
 function entryPoint(request):
-    traceId  = request.headers.get("X-Trace-Id") ?? generateUUID()
-    spanId   = generateUUID()
-    parentId = null
+    parent = otel.propagation.extract(request.headers)   // reads traceparent; a legacy X-Trace-Id is accepted only as a fallback
+    span   = tracer.startSpan("process_order", parent=parent)   // new trace_id only when there is no parent
+    bindLogContext(trace_id=span.traceId, span_id=span.spanId)
+    return processRequest(request)
 
-    context = TraceContext(trace_id=traceId, span_id=spanId, parent_id=parentId)
-    return processWithContext(request, context)
-
-// downstream call — propagate trace context in headers
-function callDownstream(endpoint, payload, context):
-    headers = {
-        "X-Trace-Id":  context.trace_id,    // unchanged across all hops
-        "X-Span-Id":   generateUUID(),       // new per hop
-        "X-Parent-Id": context.span_id,      // caller's span_id becomes parent
-    }
+// downstream call: the propagator writes traceparent and tracestate for the current span
+function callDownstream(endpoint, payload):
+    headers = {}
+    otel.propagation.inject(headers)
     return httpClient.post(endpoint, payload, headers=headers)
 
-// AI call — trace_id applies; AI invocation gets its own span
-function callAIModel(prompt, context):
-    aiSpanId = generateUUID()
-    log.info("ai call started",
-        trace_id=context.trace_id,
-        ai_span_id=aiSpanId,
-        model=MODEL_ID,
-    )
-
-    start  = now()
-    result = model.generate(prompt)
-
-    log.info("ai call completed",
-        trace_id=context.trace_id,
-        ai_span_id=aiSpanId,
-        duration_ms=now() - start,
-    )
-    return result
+// AI call: the invocation gets its own child span; log lines carry the bound ids automatically
+function callAIModel(prompt):
+    with tracer.startSpan("ai.generate", attributes={ "ai.model": MODEL_ID }):
+        log.info("ai call started", model=MODEL_ID)
+        start  = now()
+        result = model.generate(prompt)
+        log.info("ai call completed", duration_ms=now() - start)
+        return result
 ```
 
 #### Failure Mode
@@ -200,23 +187,21 @@ Generating a new `trace_id` at each service boundary instead of propagating the 
 Emit observability signals at every boundary where behavior, latency, or correctness can change. Define what to emit at each boundary type; do not rely on ad hoc logging in logic code.
 
 ```
-// REQUEST BOUNDARY — every inbound request
-function emitRequestSignals(request, response, duration_ms, trace_id):
-    metric.histogram("request.duration_ms", duration_ms,
-        tags={ endpoint: request.path, status: response.status, env: ENV })
-    metric.counter("request.count", 1,
-        tags={ endpoint: request.path, status: response.status })
+// REQUEST BOUNDARY — every inbound request (OpenTelemetry semantic convention)
+function emitRequestSignals(request, response, duration_seconds):
+    // http.route is the route template (/orders/{id}), never the raw path (/orders/8812)
+    metric.histogram("http.server.request.duration", duration_seconds,
+        attributes={ "http.route": request.route, "http.response.status_code": response.status })
+    // request count is the histogram's count; no separate counter
     if response.status >= 500:
-        log.error("request error",
-            trace_id=trace_id, status=response.status, duration_ms=duration_ms)
+        log.error("request error", status=response.status, duration_seconds=duration_seconds)
 
 // PUBLISH / CONSUME BOUNDARY — every event produced or consumed
-function emitEventSignals(event, direction, success, trace_id):
+function emitEventSignals(event, direction, success):
     metric.counter("event." + direction + ".count", 1,
         tags={ topic: event.topic, success: success })
     if not success:
-        log.error("event processing failed",
-            trace_id=trace_id, topic=event.topic, event_id=event.id)
+        log.error("event processing failed", topic=event.topic, event_id=event.id)
 
 // TRANSFORMATION BOUNDARY — every pipeline stage
 function emitPipelineSignals(stage, input_count, output_count, error_count, age_seconds):
@@ -231,14 +216,13 @@ function emitValidationSignals(schema_name, passed, violations):
     if not passed:
         log.warn("validation failed", schema=schema_name, violations=violations)
 
-// AI GENERATION BOUNDARY — every model call
-function emitAISignals(trace_id, model, duration_ms, schema_valid, constraint_violated):
+// AI GENERATION BOUNDARY — every model call (log lines carry the bound trace ids)
+function emitAISignals(model, duration_ms, schema_valid, constraint_violated):
     metric.histogram("ai.call.duration_ms", duration_ms, tags={ model: model })
     metric.counter("ai.schema_compliance",    1, tags={ model: model, valid: schema_valid })
     metric.counter("ai.constraint_violation", 1, tags={ model: model, violated: constraint_violated })
     if constraint_violated:
-        log.warn("ai output violated constraint",
-            trace_id=trace_id, model=model)
+        log.warn("ai output violated constraint", model=model)
 ```
 
 #### Failure Mode
@@ -257,20 +241,20 @@ Track at minimum:
 
 ```
 // record after every AI call — before downstream use
-function recordAIMetrics(run_id, model, output, expected_schema, guardrails, trace_id):
+function recordAIMetrics(run_id, model, output, expected_schema, guardrails):
     schema_valid        = validate(output, expected_schema)
     constraint_violated = checkGuardrails(output, guardrails)
 
-    metric.counter("ai.schema_compliance_rate",   1,
+    // rates (compliance %, violation %) are computed at query time from these counters
+    metric.counter("ai.schema_compliance",    1,
         tags={ model: model, valid: schema_valid })
-    metric.counter("ai.constraint_violation_rate", 1,
+    metric.counter("ai.constraint_violation", 1,
         tags={ model: model, violated: constraint_violated })
     metric.histogram("ai.output_token_count", len(output.tokens),
         tags={ model: model })
 
     log.info("ai run recorded",
         run_id=run_id,
-        trace_id=trace_id,
         model=model,
         schema_valid=schema_valid,
         constraint_violated=constraint_violated,
@@ -310,7 +294,7 @@ rows keyed to a specific entity, e.g. one row per outbound call against a specif
 request, queryable directly rather than only by log search). A database table is a deliberate
 choice for a domain-scoped audit trail, distinct from and additive to general request/operation
 logging; it does not replace file or managed-service persistence for signals with no natural
-domain-entity key to hang off (e.g. `traceMixin` output for a full poll cycle).
+domain-entity key to hang off (e.g. the trace-bound log lines of a full poll cycle).
 
 Whichever sink is chosen, declare explicitly:
 - **Rotation policy**: a size or time trigger (e.g. daily, or at a fixed file size) and a retained
@@ -318,9 +302,9 @@ Whichever sink is chosen, declare explicitly:
 - **Retention window**: how long a log record survives before deletion or archival, driven by the
   system's actual debugging/audit need, not left as "however long the disk holds out."
 - **Level policy across environments**: the minimum emitted level per `EXECUTION_MODE` (dev/stage/
-  prod), consistent with `logger.ts`'s/`logging_config.py`'s own execution-mode mapping elsewhere
-  in this guide, so a production deployment is not silently drowning in debug-level volume, nor a
-  dev environment silently missing the detail a live debugging session needs.
+  prod), consistent with `micro/coding-standards/common.md` Standard 1, so a production deployment
+  is not silently drowning in debug-level volume, nor a dev environment silently missing the
+  detail a live debugging session needs.
 
 - Failure mode: a service logs correctly-shaped JSON to stdout only, with no declared sink,
   rotation, or retention; the process restarts during an incident and every log line from the
@@ -373,15 +357,22 @@ requirement specific to AI-IDS systems, and this guide keeps the signal design t
 ## Definition of Done
 
 Observability is complete when:
+
+### Per change
+
 - critical user and system flows have measurable signals
 - validation and contract failures are surfaced as observable events
 - latency, throughput, and errors are measurable at every boundary
-- `trace_id` is generated at entry and propagated through all downstream calls and logs
-- log records conform to the standard shape: timestamp, level, message, trace_id, service, context
+- `trace_id` is generated at entry and propagated with W3C `traceparent` through all downstream calls, and bound once so every log line carries it
+- log records carry the Standard 6 minimum fields (`timestamp`, `level`, `message`, `trace_id`, `span_id`, `service`) in the standard shape above
+- metric attributes use route templates, never raw paths; names follow OpenTelemetry semantic conventions where one exists
 - AI-specific correctness metrics exist where AI is used and gate downstream use on schema validity
 - for AI-IDS systems, the Observability UI Contract in `meso/ai-deterministic-systems.md` is satisfied
 - debugging a major failure is feasible without guesswork
 - every metric declares its labels and their maximum cardinality; no unbounded identifier is a metric label; a per-service series budget is alerted on
 - a trace sampling policy is declared that always keeps errored and SLO-breaching traces, decided once at entry and propagated
 - instrumentation uses OpenTelemetry APIs and semantic conventions
+
+### Standing (release and audit)
+
 - every service's logs reach a durable sink beyond process stdout, with a declared rotation policy, retention window, and per-`EXECUTION_MODE` level policy

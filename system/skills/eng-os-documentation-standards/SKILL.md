@@ -1,6 +1,6 @@
 ---
 name: eng-os-documentation-standards
-description: "Use when writing ADRs, API/data contracts, release notes, or runbooks; defines what documentation is required per discipline and its Definition of Done."
+description: "In a project governed by the Engineering OS, use when writing ADRs, API/data contracts, release notes, or runbooks; defines what documentation is required per discipline and its Definition of Done."
 sources: [meso/documentation.md, micro/templates/adr-template.md, micro/templates/release-notes-template.md, micro/templates/architecture-template.md]
 globs: ["**/docs/**", "**/README*", "**/runbooks/**", "**/decisions/**", "**/.specs/**"]
 always_apply: false
@@ -79,11 +79,15 @@ changed.
 
 ## When an ADR Is Required
 
-Write an ADR when:
-- choosing between two or more non-trivial technical approaches
-- adopting or deprecating a platform, library, or pattern
-- making a trade-off with long-term consequences (consistency vs. availability, build vs. buy)
-- establishing a standard that will govern future work
+Write an ADR when at least one holds:
+- it is expensive to reverse (schema shape, storage engine, public contract, a dependency others build on)
+- it deviates from a documented pattern in this OS or the project's CLAUDE.md
+- it changes a Terminology Lock term, a Message Area Code, or a Scale Target
+- two or more viable approaches were considered and a later reader could reasonably ask why
+
+Test: "would a new engineer six months from now need this to avoid re-litigating it?" Otherwise,
+record the choice in the commit message (or the task summary where the project has no commits): a
+local, cheap-to-reverse choice that follows the pattern does not get an ADR.
 
 ADRs are immutable once accepted. If a decision changes, write a new ADR that supersedes the old
 one; mark the old one `Superseded by ADR-NNN`, do not delete it.
@@ -105,15 +109,6 @@ Shape only; full section-by-section guidance lives in the canonical template.
 
 Full template: `../../micro/templates/adr-template.md`. See `references/example.md` for a
 filled-in instance.
-
-### When an ADR Is Not Required
-
-An ADR is required when at least one holds: expensive to reverse (schema shape, storage engine,
-public contract, a dependency others build on); deviates from a documented pattern in this OS or
-the project's CLAUDE.md; changes a Terminology Lock term, a Message Area Code, or a Scale Target;
-or two or more viable approaches were considered and a later reader could reasonably ask why. A
-local, cheap-to-reverse choice that follows the pattern goes in the commit message. Test: "would
-a new engineer six months from now need this to avoid re-litigating it?"
 
 ## Contract, API, and Runbook Minimums
 
@@ -181,13 +176,18 @@ Done on its prose.
 
 ## Definition of Done
 
+### Per change
+
 - [ ] Every production-facing interface has current contract documentation
-- [ ] At least one ADR exists capturing the primary technology and architecture choices
+- [ ] The doc sync check ran for this change: each living document is updated or marked "no change" with a reason
+- [ ] Documentation was reviewed in the same PR as the code change that affected behavior
+- [ ] ADRs exist for every decision meeting the threshold above; cheaper local choices are recorded in commit messages instead
+
+### Standing (release and audit)
+
+- [ ] An ADR exists for each decision meeting the threshold above; the primary technology and architecture choices usually do
 - [ ] `docs/architecture/` holds the Context and Container views as text diagrams, and they match the code
 - [ ] The README states what the project is and how to install, configure, run, and test it, and each step works as written
-- [ ] The doc sync check ran for this change: each living document is updated or marked "no change" with a reason
 - [ ] A runbook exists with at minimum: health check, one failure recovery procedure, escalation path
 - [ ] All documentation declares owner and lifecycle state
-- [ ] Documentation was reviewed in the same PR as the code change that affected behavior
 - [ ] AI systems have a current prompt registry entry and at least one evaluation log
-- [ ] ADRs exist for every decision meeting the threshold above; cheaper local choices are recorded in commit messages instead

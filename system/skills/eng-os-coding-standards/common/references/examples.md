@@ -5,7 +5,9 @@ Illustrative, language-agnostic pseudocode for each standard in `SKILL.md`.
 ## 1. Execution Mode
 
 ```
-EXECUTION_MODE = getenv("EXECUTION_MODE", default="dev")
+EXECUTION_MODE = getenv("EXECUTION_MODE")   // required: no default
+if EXECUTION_MODE not in ("dev", "stage", "prod"):
+    fail startup: "EXECUTION_MODE must be one of dev, stage, prod"
 
 if EXECUTION_MODE == "dev":    LOG_LEVEL = DEBUG
 if EXECUTION_MODE == "stage":  LOG_LEVEL = INFO
@@ -22,13 +24,15 @@ TIMEOUT = getenv("SERVICE_TIMEOUT_MS", default="5000")  // optional with default
 ## 3. Constants and Configuration
 
 ```
-// constants module
-MAX_RETRIES      = 3
+// constants module: fixed per release, identical in every environment
 RETRY_BASE_MS    = 100
-RETRY_CAP_MS     = 10_000
-RETRY_BUDGET_MS  = 30_000  // total ms across all attempts (full jitter: random(0, min(cap, base * 2^n)))
-TIMEOUT_MS       = 5000
-BATCH_SIZE       = 100
+RETRY_CAP_MS     = 10000
+RETRY_BUDGET_MS  = 30000
+
+// config module: environment-derived or deployment-tunable
+API_NUM_RETRIES  = getenv("API_NUM_RETRIES", default=2)    // retries after the first call
+API_TIMEOUT_MS   = getenv("API_TIMEOUT_MS", default=5000)
+BATCH_SIZE       = getenv("BATCH_SIZE", default=100)        // tuned by operators (runbook), so config
 ```
 
 User-facing strings (labels, messages, headings) are constants too, sectioned by app area. Every
@@ -39,7 +43,7 @@ not restarted per area, so `ROT` (Rotations) and `ENG` (Engineers) messages inte
 sequence based on creation order, not two independent `000001`-starting series:
 
 ```
-// constants/rotations.ts
+// src/shared/constants/rotations.ts
 export const ROTATIONS_LABELS = {
     PAGE_TITLE:      "Rotations",
     CREATE_BUTTON:   "New Rotation",
@@ -48,9 +52,10 @@ export const ROTATIONS_MESSAGES = {
     SAVE_SUCCESS:    { code: "ROT000001", text: "Rotation saved." },
     SAVE_ERROR:      { code: "ROT000002", text: "Could not save rotation. Try again." },
     DELETE_CONFIRM:  { code: "ROT000004", text: "Delete this rotation? This cannot be undone." },
+    SERVICE_RETIRED: { code: "ROT000005", text: "This service is retired. Choose an active service." },
 }
 
-// constants/engineers.ts — created between ROT000002 and ROT000004 above, so it takes the
+// src/shared/constants/engineers.ts — created between ROT000002 and ROT000004 above, so it takes the
 // ROT000003 slot's place in the sequence
 export const ENGINEERS_MESSAGES = {
     CONTACT_INVALID: { code: "ENG000003", text: "Enter a valid phone number or email." },
@@ -81,31 +86,31 @@ catch NetworkError as e:
 ## 5. Retry Logic
 
 ```
-RETRIES  = getenv("{AREA}_NUM_RETRIES", default=3)
-BACKOFF  = [50, 100, 200, 500]  // milliseconds
+// constants: RETRY_BASE_MS = 100, RETRY_CAP_MS = 10_000, RETRY_BUDGET_MS = 30_000
+// config:    {AREA}_NUM_RETRIES, default 2 (retries after the first call)
 
-function callWithRetry(operation):
-    for attempt in range(RETRIES):
+function callWithRetry(operation, numRetries = config.{AREA}_NUM_RETRIES, deadlineMs = none):
+    started = monotonicNow()
+    budget  = min(RETRY_BUDGET_MS, deadlineMs) if deadlineMs else RETRY_BUDGET_MS
+    for attempt in range(numRetries + 1):            // the first call plus numRetries retries
         try:
             return operation()
-        catch TransientError as e:
-            if attempt == RETRIES - 1: raise
-            delay = BACKOFF[min(attempt, len(BACKOFF) - 1)]
-            log.warn("retry", attempt=attempt+1, delay_ms=delay, error=e)
-            sleep(delay)
+        catch ServiceUnavailableError as e:          // timeouts, resets, 408, 429, 502, 503, 504
+            if attempt == numRetries: raise
+            delay = random(0, min(RETRY_CAP_MS, RETRY_BASE_MS * 2^attempt))   // full jitter
+            wait  = max(delay, e.retryAfterMs or 0)                          // honor Retry-After
+            if elapsedMs(started) + wait > budget: raise                     // budget or deadline reached
+            log.warn("retrying", attempt=attempt+1, delay_ms=wait, error=e)
+            sleep(wait)
+        // any other error is non-retryable and propagates immediately
 ```
 
 ## 6. Structured Logging
 
 ```
-log.info("processing started", {
-    timestamp: now_iso8601(),
-    level:     "INFO",
-    message:   "processing started",
-    trace_id:  request.trace_id,
-    service:   "order-pipeline",
-    context:   { order_id: order.id, item_count: order.items.length }
-})
+// trace_id and span_id were bound once at the entry point; the logger adds them, with
+// timestamp, level, message, and service, to every record
+log.info("processing started", order_id=order.id, item_count=order.items.length)
 
 // never
 console.log("processing " + order.id)   // unstructured, no level, no trace_id
@@ -117,8 +122,8 @@ console.log("processing " + order.id)   // unstructured, no level, no trace_id
 | Hardcoded (forbidden) | Correct |
 |---|---|
 | `url = "https://api.prod.example.com"` | `url = getenv("SERVICE_URL")` |
-| `timeout = 30` | `timeout = TIMEOUT_MS` (from constants) |
-| `retries = 3` | `retries = getenv("API_NUM_RETRIES", 3)` |
+| `timeout = 30` | `timeout = config.API_TIMEOUT_MS` |
+| `retries = 3` | `retries = config.API_NUM_RETRIES` (default 2, set in the config module) |
 | `key = "sk-abc123"` | `key = getenv("OPENAI_API_KEY")` |
 
 ## 8. Default Values
@@ -170,8 +175,6 @@ function lookupUser(request):
 function lookupUser(request):
     if not isUUID(request.user_id):
         raise ValidationError("invalid user_id format")
-    if len(request.user_id) > 36:
-        raise ValidationError("user_id exceeds maximum length")
 
     log.info("lookup", user_id=request.user_id)               // no secret in log
     return db.query("SELECT * FROM users WHERE id = ?", [request.user_id])  // parameterized
@@ -235,22 +238,27 @@ function handleCreateRotation(request, response):
 type Rotation = { id, name, serviceId }
 
 // rotations/repositories/rotation-repository.ts
-function insertRotation(db, input): Rotation
-    return db.insert("rotations", { name: input.name, service_id: input.serviceId })
+function insertRotation(tx, input): Rotation
+    return tx.insert("rotations", { name: input.name, service_id: input.serviceId })
+function findService(tx, serviceId): Service | null
+    return tx.selectOne("services", { id: serviceId })
 
-// rotations/services/rotation-service.ts
-function createRotation(input, rotationRepository):
-    if len(input.name) < 3: throw ValidationError(ROTATIONS_MESSAGES.NAME_TOO_SHORT)
-    return rotationRepository.insert(input)
+// rotations/services/rotation-service.ts: owns the business rules and the transaction boundary
+function createRotation(input, rotationRepository, runInTransaction):
+    return runInTransaction(tx =>
+        service = rotationRepository.findService(tx, input.serviceId)
+        if service is null or service.retired:
+            throw BusinessRuleError(ROTATIONS_MESSAGES.SERVICE_RETIRED)   // business rule: 422
+        return rotationRepository.insertRotation(tx, input))
 
 // rotations/views/rotation-view.ts
 function toRotationResponse(rotation):
     return { id: rotation.id, name: rotation.name }          // whitelist
 
-// rotations/controllers/rotation-controller.ts
+// rotations/controllers/rotation-controller.ts: never sees a transaction
 function handleCreateRotation(request, response):
-    input = parseCreateRotation(request.body)                 // shape validation
-    rotation = rotationService.createRotation(input)          // service, repository already injected
+    input = parseCreateRotation(request.body)                 // shape validation (name 3 to 80 chars): 400
+    rotation = rotationService.createRotation(input)          // repository and transaction runner injected
     response.status(201).send(toRotationResponse(rotation))   // view
 ```
 

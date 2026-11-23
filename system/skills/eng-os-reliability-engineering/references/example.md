@@ -9,17 +9,22 @@ availability.
 service: order-api
 slos:
   - name: availability
-    sli: sum(http_requests_total{status!~"5.."}) / sum(http_requests_total)
+    sli: sum(http_server_request_duration_seconds_count{http_response_status_code!~"5.."}) / sum(http_server_request_duration_seconds_count)
     window: 30d
     target: 0.999
     alerts:
       - { burn_rate: 14.4, lookback: 1h, severity: page }
       - { burn_rate: 6,    lookback: 6h, severity: ticket }
   - name: latency
-    sli: histogram_quantile(0.99, http_request_duration_seconds) < 0.4
-    window: 1h
+    sli: sum(http_server_request_duration_seconds_bucket{le="0.4"}) / sum(http_server_request_duration_seconds_count)
+    window: 30d
     target: 0.99
 ```
+
+Both SLIs are good events over total events from the OpenTelemetry HTTP histogram
+(`http.server.request.duration`, exported to Prometheus as `http_server_request_duration_seconds`).
+`good` and `total` are counters; the SLO tool takes their increase over `window`. The histogram
+declares a 0.4s bucket boundary, so the latency SLI counts requests that took 400ms or less.
 
 The budget for availability is 43 minutes per 30 days. In the last quarter it was spent twice;
 both times the release train paused for reliability work, which is the mechanism working.
@@ -32,7 +37,8 @@ export const dependencies = {
   paymentGateway:  { critical: true,  timeoutMs: 2000, breaker: { failureRate: 0.3, window: '60s', cooldown: '30s' } },
   recommendations: { critical: false, timeoutMs: 150, breaker: { failureRate: 0.5, window: '30s', cooldown: '60s' },
                      degraded: 'omit section, set X-Degraded: recommendations' },
-  pricingCache:    { critical: false, timeoutMs: 50,  degraded: 'read pricing from postgres, mark stale=false' },
+  pricingCache:    { critical: false, timeoutMs: 50,  breaker: { failureRate: 0.5, window: '30s', cooldown: '30s' },
+                     degraded: 'read pricing from postgres (fresh, no staleness marker needed)' },
 } as const;
 ```
 
@@ -55,4 +61,5 @@ within 30 seconds.
 |---|---|---|---|
 | Recommendations outage degrades, does not fail checkout | inject 100% errors for 5 min in stage | breaker tripped at 28s; checkout p99 unchanged | none |
 | Postgres pool exhaustion sheds rather than hangs | hold 20 connections open per pod | waiters rejected with `503` after 100ms; alert fired | dashboard lacked pool-wait histogram; added |
-| Cell failover completes within RTO (1h) | drain cell A routing | 14 minutes to full traffic on cell B | runbook step 3 referenced an old DNS name; fixed |
+| Loss of cell A is contained to cell A's tenants | stop cell A's compute in stage | cell A's tenants saw errors; cell B p99 unchanged, no cross-cell spillover | none |
+| Region failover to the standby region completes within RTO (1h) | fail the stage region over to its standby | 14 minutes to full traffic in the standby region | runbook step 3 referenced an old DNS name; fixed |

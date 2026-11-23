@@ -43,7 +43,7 @@ Every principle, design pattern, and implementation standard in the OS carries a
 
 ## The AI-IDS Framework
 
-The AI Instruction Design Set (AI-IDS) is a formal framework for authoring AI system instructions as engineering artifacts, with defined semantics, an explicit precedence order for conflict resolution, an execution dependency chain, and a measurable determinism boundary.
+The AI Instruction Design Set (AI-IDS) is a formal framework for authoring AI system instructions as engineering artifacts, with defined semantics, three separate orders (document, execution, and the authority rules that resolve conflicts), and a measurable determinism boundary.
 
 The framework provides 11 defined sections:
 
@@ -61,7 +61,7 @@ The framework provides 11 defined sections:
 | GUIDELINES & INSTRUCTIONS | Non-authoritative influence on phrasing |
 | FEW SHOT EXAMPLES | Illustrative pairs that influence output and never hold authority |
 
-Sections have defined precedence: when two sections conflict, the higher-precedence section wins. This is documented explicitly, not left to interpretation. The framework includes a worked example showing every section populated for a real production use case, and an author review checklist for verifying a spec before deployment.
+Conflicts between sections are settled by explicit authority rules, not by section order: GUARDRAILS holds the highest constraint authority, Core sections govern Extended sections, and guidance never overrides a constraint. This is documented explicitly, not left to interpretation. The framework includes a worked example showing every section populated for a real production use case, and an author review checklist for verifying a spec before deployment.
 
 AI-IDS is model-agnostic. It operates as a structured specification layer above runtime and decoding controls, making AI behavior reviewable, testable, and measurable in the same way any other system component would be.
 
@@ -156,7 +156,7 @@ The Agent Skills format (`SKILL.md`) was published by Anthropic as an open stand
 | [Anthropic Skills](https://github.com/anthropics/skills) | The reference implementation of the `SKILL.md` format and specification, plus a demonstration set of example skills | The format this OS is built on. The specification is the authority. |
 | [OpenAI Skills](https://github.com/openai/skills) | The official Codex CLI catalog of curated, task-specific skills | Reads the same `SKILL.md` format, which is why the OS documents a Codex CLI path in `skills/PORTABILITY.md` |
 | [Superpowers](https://github.com/obra/superpowers) | A software development methodology (brainstorm, design, plan, TDD, review) implemented as composable skills | Covers how a feature gets built in one session. This OS covers what standard the result must meet across API design, data strategy, security, observability, and AI systems. A team could use both. |
-| [VoltAgent Awesome Agent Skills](https://github.com/VoltAgent/awesome-agent-skills) | An aggregator with about 1,500 skills (as of 2026-10) from official teams and community contributors | A place to find an existing skill for a specific tool or task. This OS addresses cross-cutting standards instead. |
+| [VoltAgent Awesome Agent Skills](https://github.com/VoltAgent/awesome-agent-skills) | An aggregator with about 1,500 skills (as of 2026-11) from official teams and community contributors | A place to find an existing skill for a specific tool or task. This OS addresses cross-cutting standards instead. |
 | [heilcheng Awesome Agent Skills](https://github.com/heilcheng/awesome-agent-skills) | A curated directory of skills used by real teams, with multi-language documentation | A curated way to discover vetted skills. Because this OS uses the same open format, it could be listed in directories like this one. |
 
 The skills layer (`skills/README.md`) applies the format at the scope of a full engineering standard rather than a single library or project. Its design follows from the review above:
@@ -172,7 +172,7 @@ The skills layer (`skills/README.md`) applies the format at the scope of a full 
 
 - **Adoption.** This OS has been used only on the author's own projects. The collections above, Superpowers in particular, have much wider real-world use.
 - **Platforms.** `SKILL.md` reads natively on the platforms listed, so the skills should load there without an export step according to each platform's documentation (see `skills/PORTABILITY.md`). Only Claude Code has been exercised end to end. Aider would need an export, and none has been built.
-- **Breadth.** At 28 skills, this OS is narrow next to a directory of about 1,500 (as of 2026-10). The choice was coherence and governance under one standard over breadth.
+- **Breadth.** At 28 skills, this OS is narrow next to a directory of about 1,500 (as of 2026-11). The choice was coherence and governance under one standard over breadth.
 - **Evidence strength.** Some rules rest on comparison alone. `eng-os-spec-feature` has no recorded downstream incident yet (E-29), and the ledger says so.
 
 ---

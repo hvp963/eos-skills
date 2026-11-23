@@ -1,6 +1,6 @@
 ---
 name: eng-os-data-strategy
-description: "Use when building data pipelines: batch/streaming design, schema evolution, idempotent ingestion, freshness SLAs."
+description: "In a project governed by the Engineering OS, use when building data pipelines: batch/streaming design, schema evolution, idempotent ingestion, freshness SLAs."
 sources:
   - meso/data-strategy.md
   - micro/templates/etl-template.md
@@ -34,19 +34,24 @@ Duplicates can arise at ingestion, replay, retry, and downstream joins; deduplic
 
 ### Idempotent Write
 
-Upsert by a stable natural key sourced from the upstream system (never a DB-generated ID). If no natural key exists upstream, derive one deterministically (e.g., hash of source + record identifiers).
+Upsert by a stable natural key sourced from the upstream system (never a DB-generated ID). If no natural key exists upstream, derive one deterministically (e.g., hash of source + record identifiers). The natural key has a unique constraint, and the write is one atomic statement: insert, or update only when the incoming version is newer; an older or equal replay changes nothing. Use the engine's upsert (`INSERT ... ON CONFLICT ... DO UPDATE ... WHERE` in PostgreSQL and SQLite, `MERGE` in warehouses). Never read-then-write.
 
+```sql
+INSERT INTO records (external_id, status, amount_cents, updated_at)
+VALUES (:external_id, :status, :amount_cents, :updated_at)
+ON CONFLICT (external_id) DO UPDATE
+    SET status = EXCLUDED.status, amount_cents = EXCLUDED.amount_cents, updated_at = EXCLUDED.updated_at
+    WHERE records.updated_at < EXCLUDED.updated_at;   -- older or equal replay is a no-op
 ```
-function writeRecord(record):
-    existing = db.findByKey(natural_key=record.external_id)
-    if existing is null:
-        db.insert(record)
-    elif existing.updated_at >= record.updated_at:
-        return  // idempotent no-op: replay of older/equal data
-    else:
-        db.update(id=existing.id, fields=record.diffFrom(existing))
-```
-- Failure mode: writing without a uniqueness check on replay inserts duplicates on every rerun; using an auto-increment PK as the dedup key treats every insert as new.
+
+Compare on `updated_at`, or on a source sequence number when source timestamps are not monotonic; a missing target version counts as older. In a warehouse `MERGE`, deduplicate the batch to the latest version per key first (a `MERGE` rejects a source with more than one row per key) and guard the update: `WHEN MATCHED AND (target.updated_at IS NULL OR source.updated_at > target.updated_at)`.
+- Failure mode: writing without a uniqueness constraint inserts duplicates on every rerun; using an auto-increment PK as the dedup key treats every insert as new.
+- Failure mode: a read-then-write upsert races under concurrent replay (two writers both see no row and both insert); an unguarded `MERGE` regresses newer rows to older values on a backfill.
+
+### Caching for Repeated Access
+
+Use caching where repeated access patterns justify lower-latency retrieval: reference data, profiles, and frequently accessed aggregates. Every cached value has an invalidation rule and a freshness bound (see Freshness SLA below).
+- Failure mode: cached stale data silently undermines trust when invalidation is weak.
 
 ### Schema Evolution
 
@@ -112,6 +117,8 @@ Validate: structure, required fields, semantic correctness where feasible, fresh
 - weak partitioning creates scale limits
 - missing lineage obscures the source of corruption
 - replay without idempotency compounds bad outputs
+- a read-then-write upsert races under concurrent replay and inserts duplicates or fails on the unique constraint
+- an unguarded `MERGE` regresses newer rows to older values on a backfill
 - poor freshness controls make downstream decisions stale
 - freshness badges omitted from consuming UI make staleness invisible to the end user
 - windowed outputs computed before late data lands, with no provisional/final marker
@@ -119,16 +126,21 @@ Validate: structure, required fields, semantic correctness where feasible, fresh
 
 ## Definition of Done
 
+### Per change
+
 - [ ] Producer and consumer contracts are explicit
 - [ ] Partitioning strategy is defined
-- [ ] Idempotency and de-duplication are addressed at every boundary where duplicates can arise
+- [ ] Idempotency and de-duplication are addressed at every boundary where duplicates can arise: the natural key has a unique constraint, and the write is one atomic upsert that leaves a row unchanged on an older or equal replay
 - [ ] Batch vs. streaming choice is justified
 - [ ] Quality checks (structure, required fields, freshness, completeness, uniqueness) are defined
-- [ ] Freshness SLA is explicit per dataset, with a metric and an alert
 - [ ] For any field/dataset with a DECLARED freshness SLA, any UI rendering it (including fused data) surfaces a freshness/staleness indicator at the point of consumption
 - [ ] Reprocessing and replay implications are understood
 - [ ] Every time-windowed computation declares its watermark, late-data handling, and provisional/final status
 - [ ] Every pipeline boundary declares its delivery guarantee, and consumers are idempotent under at-least-once
 - [ ] Every output dataset has a classification, retention, and lineage record per `eng-os-privacy-and-governance`
+
+### Standing (release and audit)
+
+- [ ] Freshness SLA is explicit per dataset, with a metric and an alert
 
 A worked example of the checklist: `references/pipeline-checklist-example.md`.

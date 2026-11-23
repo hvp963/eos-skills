@@ -66,7 +66,31 @@ Use this template to review whether a system design is complete, consistent, and
 
 ---
 
-## 8. Decision
+## 8. Threat Model
+- What are the trust boundaries, the assets, and the most likely attacks on each (`eng-os-security-practices` §7)?
+- Is the threat model attached to this design, for any system handling user data, money, credentials, or AI-driven actions?
+
+---
+
+## 9. Capacity and SLOs
+- Does the design meet the numbers in CLAUDE.md `## Scale Targets` (peak load, data volume, largest tenant), and which component saturates first (`eng-os-system-design`)?
+- Which SLIs and SLOs does it declare, with what error budget (`eng-os-reliability-engineering`)?
+
+---
+
+## 10. Data Classification and Retention
+- What classification does each dataset carry, and what are its retention period, lineage, and deletion procedure (`eng-os-privacy-and-governance`)?
+- Does any personal or classified data leave the system (a third party, an AI model), and is that transfer recorded?
+
+---
+
+## 11. Cost
+- What does it cost per Scale Target unit, and how is cost attributed (`eng-os-platform-infrastructure`)?
+- If AI is used, what are its token budget per call and its monthly spend at the Scale Targets?
+
+---
+
+## 12. Decision
 - Approve
 - Approve with changes
 - Rework required

@@ -43,25 +43,36 @@ Design tokens are the foundational layer of the visual language. They are named 
 
 ```css
 --primary:        #7c3aed;   /* primary action, focus rings, active states */
---primary-light:  #8b5cf6;   /* hover state for primary elements */
---primary-glow:   rgba(124,58,237,0.10);  /* tinted backgrounds, badge fills */
+--primary-hover:  #6d28d9;   /* hover state for primary fills; white on it is 7.10:1 */
+--primary-text:   #6d28d9;   /* primary-hued text on a tint (badges): 5.56:1 on primary-glow over --bg */
+--primary-light:  #8b5cf6;   /* non-text accents only; white on it is 4.23:1, below 4.5:1 */
+--primary-glow:   rgba(124,58,237,0.10);  /* tinted backgrounds, badge fills, input focus halo */
+--on-primary:     #ffffff;   /* text and icons on primary fills (5.70:1) */
 ```
 
 ### 1.2 Color — Semantic
 
 Semantic colors carry meaning. Use them consistently: amber always means caution, red always means error or required action, green always means success or value. Mixing them destroys the vocabulary.
 
+Each hue has two roles. The base hue is for fills, borders, icons, and callout bars, where 3:1 against the background is enough (non-text contrast). Text in that hue uses its `-text` token, which reaches 4.5:1 on white, on `--bg`, and on its own tint (1.9).
+
 ```css
---green:       #059669;
---green-soft:  rgba(5,150,105,0.08);    /* tip callouts, value lists */
+--green:        #059669;                 /* fills, borders, bars */
+--green-text:   #047857;                 /* green text: 4.52:1 on green-soft over --bg */
+--green-soft:   rgba(5,150,105,0.08);    /* tip callouts, value lists */
+--green-border: rgba(5,150,105,0.2);     /* border of a green-soft surface */
 
---amber:       #d97706;
---amber-soft:  rgba(217,119,6,0.08);    /* warnings, behavioral changes */
+--amber:        #d97706;
+--amber-text:   #92400e;                 /* amber text: 5.92:1 on amber-soft over --bg */
+--amber-soft:   rgba(217,119,6,0.08);    /* warnings, behavioral changes */
 
---red:         #dc2626;
---red-soft:    rgba(220,38,38,0.06);    /* errors, breaking changes */
+--red:          #dc2626;
+--red-text:     #b91c1c;                 /* red text: 5.37:1 on red-soft over --bg */
+--red-soft:     rgba(220,38,38,0.06);    /* errors, breaking changes */
 
---cyan:        #0891b2;                 /* informational, secondary accent */
+--cyan:         #0891b2;                 /* informational, secondary accent (fills only: 3.68:1 on white) */
+--cyan-text:    #155e75;                 /* cyan text: 7.27:1 on white, 6.01:1 on cyan-glow over --bg */
+--cyan-glow:    rgba(8,145,178,0.08);    /* informational tint */
 ```
 
 ### 1.3 Color — Surface
@@ -79,8 +90,8 @@ Never set a page background to `--surface`. The contrast between `--bg` and `--s
 
 ```css
 --text:       #0f172a;  /* primary body — near-black, high contrast */
---text-muted: #64748b;  /* secondary — labels, metadata, supporting copy */
---text-dim:   #94a3b8;  /* tertiary — disabled, placeholder, decorative */
+--text-muted: #475569;  /* secondary: labels, metadata, placeholders, supporting copy (7.58:1 on white, 6.86:1 on --bg) */
+--text-dim:   #94a3b8;  /* disabled and decorative only (WCAG exempts disabled controls); never body text or placeholders */
 ```
 
 ### 1.5 Color — Border
@@ -116,6 +127,23 @@ font-family: 'Google Sans Flex', 'Inter', system-ui, sans-serif;
 | md | `8px` | Callouts, inner tables |
 | lg | `10–12px` | Cards, panels, containers — **preferred default** |
 | full | `99px` | Pills, tags, avatar rings |
+
+### 1.9 Contrast
+
+Every text token reaches 4.5:1 on the surfaces it is used on. Ratios use the WCAG 2.x relative-luminance formula, with tints blended at their declared alpha and rounded to 8-bit colour, as a browser renders them. A tint is translucent, so it is measured over both surfaces it sits on: a card (white) and the page (`--bg`). A value change re-runs this table, and the accessibility check, before it ships.
+
+| Text token | Value | On white | On `--bg` | On `--surface-3` | On its tint over white | On its tint over `--bg` |
+|---|---|---:|---:|---:|---:|---:|
+| `--text` | `#0f172a` | 17.85 | 16.16 | 16.30 | n/a | n/a |
+| `--text-muted` | `#475569` | 7.58 | 6.86 | 6.92 | n/a | n/a |
+| `--primary` | `#7c3aed` | 5.70 | 5.16 | 5.20 | n/a | n/a |
+| `--primary-text` | `#6d28d9` | 7.10 | 6.43 | 6.49 | 6.12 | 5.56 |
+| `--green-text` | `#047857` | 5.48 | 4.97 | 5.01 | 5.00 | 4.52 |
+| `--amber-text` | `#92400e` | 7.09 | 6.42 | 6.47 | 6.51 | 5.92 |
+| `--red-text` | `#b91c1c` | 6.47 | 5.86 | 5.91 | 5.90 | 5.37 |
+| `--cyan-text` | `#155e75` | 7.27 | 6.58 | 6.63 | 6.60 | 6.01 |
+
+Fill pairs: `--on-primary` on `--primary` is 5.70, and on `--primary-hover` 7.10. The focus ring (`--primary`) is 5.70 on white and 5.16 on `--bg`, above the 3:1 required for UI components. `--text-dim` (2.56 on white) passes nothing and is used only where WCAG exempts it: disabled controls and decoration.
 
 ---
 
@@ -153,8 +181,12 @@ box-shadow: var(--shadow-sm);
 /* hover */
 border-color: var(--border-bright);
 box-shadow: var(--shadow-md);
-transform: translateY(-1px);
-transition: all 0.15s;
+
+/* motion only when the user has not asked to reduce it (3.9) */
+@media (prefers-reduced-motion: no-preference) {
+  transform: translateY(-1px);
+  transition: box-shadow 0.15s, border-color 0.15s, transform 0.15s;
+}
 ```
 
 **Use cards for:** numbered items, feature descriptions, decisions, breaking change details, anything with 3+ fields of structured content.
@@ -175,10 +207,10 @@ text-transform: uppercase;
 letter-spacing: 0.04–0.06em;
 
 /* semantic variants */
-.badge-improved { background: var(--primary-glow); color: var(--primary); }
-.badge-new      { background: var(--green-soft);   color: var(--green); }
-.badge-behavior { background: var(--amber-soft);   color: var(--amber); }
-.badge-breaking { background: var(--red-soft);     color: var(--red); }
+.badge-improved { background: var(--primary-glow); color: var(--primary-text); }
+.badge-new      { background: var(--green-soft);   color: var(--green-text); }
+.badge-behavior { background: var(--amber-soft);   color: var(--amber-text); }
+.badge-breaking { background: var(--red-soft);     color: var(--red-text); }
 .badge-fixed    { background: var(--surface-3);    color: var(--text-muted); border: 1px solid var(--border); }
 ```
 
@@ -222,7 +254,7 @@ box-shadow: var(--shadow-sm);
 **Inline tip / note**:
 ```css
 background: var(--green-soft);
-border: 1px solid rgba(5,150,105,0.2);
+border: 1px solid var(--green-border);
 border-radius: 10px;
 padding: 13px 16px;
 /* include a leading icon glyph for scannability */
@@ -447,7 +479,7 @@ content change, not a code change:
 
 ## 3.11 Rule versus Profile
 
-Sections 1, 2, and 4 of this guide carry concrete values: named tokens, a typographic scale,
+Sections 1 to 5 of this guide carry concrete values: named tokens, a typographic scale,
 pixel sizes for the header and content width. Those values are the **default profile**, shipped so
 a new project has a complete, coherent system on day one. The **rule** at OS level is narrower and
 holds for every project regardless of its values:
@@ -519,8 +551,9 @@ rule list, the entry shape, and the adoption sequence.
 A dark theme and any alternate palettes are override blocks that redeclare the same token names,
 never a second set of components. Because a component draws only tokens, every theme and palette
 restyles it for free; a component that uses a hex colour or an inline colour style opts out and
-breaks in the other theme. Contrast is checked per theme and per palette, not once: accent hues
-are chosen to reach 4.5:1 on white, on the page background, and on their own tints, and a new
+breaks in the other theme. Contrast is checked per theme and per palette, not once. Text tokens
+reach 4.5:1 on white, on `--bg`, and on their own tints over either surface; base hues are for fills and borders (3:1).
+Each pair is listed in the contrast table (1.9) and rechecked when a value changes, and a new
 value is checked with the accessibility check before it ships. The saved theme is applied before
 first paint, so a reload does not flash the wrong one.
 
@@ -634,13 +667,13 @@ Hand-retyped tokens drift silently. A color or class-name typo introduced while 
 ## Definition of Done
 
 A UI or document is built to this standard when:
+
+### Per change
+
 - all colors reference CSS custom properties; no hardcoded hex values in component styles
 - all font sizes map to the defined typographic scale
-- cards use `shadow-sm` at rest and `shadow-md` on hover
-- badges use only the defined semantic color variants
-- page background is `--bg`, content surfaces are `--surface`
-- max content width is 860px or narrower
-- sticky header is 56px, `z-index: 10`
+- elevation, badge variants, surface tokens, content width, and header height match the declared profile (3.11)
+- every text token passes the contrast table (1.9): 4.5:1 on each surface it is used on
 - token file is the single source of truth: overrides are in a separate block, not inline
 - if this app is part of a multi-app suite, its docs reference the canonical token/component source by path (same repo/team) or versioned package (cross-team/multi-repo) rather than retyping values
 - for applications (not single static pages): common header, common footer, navigation panel, and application panel each exist as one shared component, not duplicated per page
@@ -648,7 +681,10 @@ A UI or document is built to this standard when:
 - every screen meets WCAG 2.2 AA: keyboard operable with visible focus, contrast at 4.5:1, meaning never carried by color alone, accessible names on controls; an automated checker runs in CI
 - strings, dates, numbers, and currencies are locale-ready, and the layout has been checked once in a right-to-left locale
 - UX and information-architecture rules in 3.8 hold: nav items are destinations only; multi-entity saves are atomic within one transaction boundary; variable-size grouped UI computes offsets from content
-- the project's CLAUDE.md declares which design profile it uses (the default profile, an inherited sibling, or its own) rather than leaving values implicit
 - recurring UI is built from the declared primitives; a raw control carries a `ds-raw: <reason>` marker; a primitive holds no hex colour and no inline style (3.12)
-- the scales and token names are declared once as data, with a catalog and a reference page that render every entry; the conformance check runs on every build against a baseline that only falls (3.12)
 - every theme and palette is token overrides only and has been checked for contrast (3.13)
+
+### Standing (release and audit)
+
+- the project's CLAUDE.md declares which design profile it uses (the default profile, an inherited sibling, or its own) rather than leaving values implicit
+- the scales and token names are declared once as data, with a catalog and a reference page that render every entry; the conformance check runs on every build against a baseline that only falls (3.12)

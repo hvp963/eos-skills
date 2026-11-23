@@ -35,7 +35,7 @@ The system is operational and reachable when needed.
 Higher availability often increases infrastructure cost and architectural complexity.
 
 ### Example
-A service deployed across three availability zones with automatic failover. If one zone becomes unreachable, traffic routes to the remaining two within 30 seconds. Health checks verify real dependency connectivity (not just process liveness) before gating traffic.
+A service deployed across three availability zones with automatic failover. If one zone becomes unreachable, traffic routes to the remaining two within 30 seconds. Readiness checks verify each instance's own state (configuration, its connection pool, migration version), not just process liveness, before gating traffic; they never test a shared downstream service, which would drain every instance at once. A post-deploy smoke test exercises the critical dependencies.
 
 ### Review Questions
 - what makes the system unavailable?

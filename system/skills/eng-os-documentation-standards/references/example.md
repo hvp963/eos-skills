@@ -79,7 +79,7 @@ the acceptable "seconds to low minutes" lag of an event-driven design.
 We'll know this was correct if p99 approval latency stops correlating with QuickBooks/Xero
 response-time incidents in our metrics (it should be independent), and if the Export Worker's
 dead-letter queue stays near zero under normal third-party degradation. Revisit if finance users
-report the async lag is actually a workflow problem, not just a cosmetic delay.
+report the async lag is a workflow problem, not a cosmetic delay.
 
 ## References
 

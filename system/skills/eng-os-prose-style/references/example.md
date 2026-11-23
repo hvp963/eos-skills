@@ -1,4 +1,3 @@
-<!-- lint-os: allow-em-dash -->  This file documents the em dash rule and must show the banned pattern.
 # Prose Style Worked Example — Documentation Site Cleanup
 
 A before/after pass, drawn from a real audit of a published documentation site (a
@@ -7,11 +6,13 @@ original text was correctly left alone.
 
 ## Case 1 — Contrastive negation repeated as rhythm
 
+<!-- lint-os: allow-em-dash-begin -->
 **Before:**
 > "Walking the OS's four governance layers against this gap directly: meta defines how to
 > navigate the OS, not how to sequence a build. Macro holds non-negotiable principles — none of
 > them is about task decomposition or verification loops. Micro has templates but they scaffold a
 > codebase shape, not a sequence of execution steps with a verify gate after each one."
+<!-- lint-os: allow-em-dash-end -->
 
 Three separate "X, not Y" constructions across three sentences, none of them correcting a specific
 stated misreading: each is habitual phrasing.
@@ -30,7 +31,7 @@ here.
 
 ## Case 2 — Filler intensifier vs. real restriction, side by side
 
-**Before (mixed — one real, two filler):**
+**Before (mixed: one real, two filler):**
 > "Freshness badges are required only for fields with a declared SLA, not for every field."
 >
 > "Confirm the vertical slices compose correctly together and the original approved scope is
@@ -60,9 +61,11 @@ stripped all three "only"s equally would have introduced a factual error in the 
 
 ## Case 3 — Em dash doing three different jobs, all of them banned in flowing prose
 
+<!-- lint-os: allow-em-dash-begin -->
 **Before:**
 > "The checkpoint table governs compliance while a task runs — it never said how to sequence
 > multiple tasks — which is the gap this skill closes."
+<!-- lint-os: allow-em-dash-end -->
 
 Two em dashes, two different relationships: the first joins an independent, closely related
 clause; the second introduces a result/conclusion. Under an earlier, softer version of this rule,
@@ -82,9 +85,11 @@ true parenthetical aside, a label-definition pairing, or a title-bar convention)
 
 ## Case 4 — A label-definition dash, with a second dash hiding inside the definition text
 
+<!-- lint-os: allow-em-dash-begin -->
 **Before:**
 > `{ label: "GUARDRAILS", desc: "Non-negotiable constraints and failure conditions — what the
 > system must never do." }`
+<!-- lint-os: allow-em-dash-end -->
 
 Two different dashes here, only one of them legitimate. The `desc:` field's own value is short
 flowing prose, and its internal em dash is joining two clauses exactly the way Section 3 bans; it
@@ -94,11 +99,13 @@ is not the field-level `label` / `desc` pairing itself.
 > `{ label: "GUARDRAILS", desc: "Non-negotiable constraints and failure conditions: what the
 > system must never do." }`
 
+<!-- lint-os: allow-em-dash-begin -->
 The field-level structure (a `label` key and a `desc` key in the same object) is the actual
 `Label — definition` convention this skill exempts, and it needed no change. The dash living
 inside the `desc` string's own prose is a different thing entirely: ordinary flowing text that
 happens to sit inside a tooltip, still subject to the same ban as any other sentence. A colon fits
 the relationship here (the second clause defines the first).
+<!-- lint-os: allow-em-dash-end -->
 
 ## Case 5 — A contrastive-negation headline, and the two other patterns hiding beside it
 

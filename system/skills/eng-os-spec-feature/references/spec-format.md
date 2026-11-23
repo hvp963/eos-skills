@@ -100,7 +100,7 @@ One JSON object per line, appended and never edited or removed. Keys, in this or
 | `withdrawn` | a row is dropped. The row stays in its ledger |
 
 One line per entry per action. To act on several rows, append several lines. `by` is a name from
-`identities`. Append the lines in time order, in one write, and never rewrite earlier lines.
+`identities`. Append your lines in time order and never rewrite earlier lines. Parallel lanes each append their own lines, so the file as a whole may interleave writers; status is read by `ts`, not by line order.
 
 **Scenarios have no events.** A scenario follows the requirements it lists. Adding, editing, or
 removing a scenario of an approved requirement is an `edited` line for that requirement, and the
@@ -134,7 +134,8 @@ No other value is valid. These are worked out when needed and never written down
   when any task that cites it is. A scenario is frozen when any requirement it lists is. A frozen
   row is never edited.
 - **superseded**: a row is superseded when a row that amends it (its Reference says `Amends <ID>`)
-  has been approved.
+  is added. Until the amending row is approved, the summary lists it as awaiting approval; approval
+  never blocks the supersession.
 - **active**: not superseded and not `withdrawn`. A scenario is active when at least one requirement
   it lists is. Superseded rows are history, and the checks ignore them.
 - **progress**: of the active tasks, how many are done, how many started, and how many have not
@@ -177,8 +178,8 @@ work.
 1. **Tables.** Every header matches its table exactly. IDs are well formed and unique. Every row has
    every cell, and `Created (UTC)` is a full timestamp.
 2. **Events.** Every requirement, design, and task row has a `proposed` line first. No line names an
-   ID that is not one of those rows. Every author and actor is in `identities`. Timestamps do not
-   go backwards.
+   ID that is not one of those rows. Every author and actor is in `identities`. Within the lines one
+   writer appended, timestamps do not go backwards.
 3. **Links.** Every ID in a `Requirements`, `Design`, `Scenarios`, or `Depends on` cell is a row of
    the right kind. An `Amends <ID>` in a Reference names an earlier row of the same table, never the
    row itself.
@@ -199,7 +200,7 @@ work.
    with a done task has a later task that removes the behavior.
 9. **Scenarios.**
    - Every active requirement has at least one scenario that lists it.
-   - A number in a requirement (a threshold or a limit) has a scenario on it or beside it.
+   - A number in a requirement (a threshold or a limit) has a scenario on it and one beside it.
    - Every active scenario is named in the Test strategy, and the Test strategy names no scenario
      that does not exist.
    - Every active scenario is in the `Scenarios` cell of an active task, and a task that lists a

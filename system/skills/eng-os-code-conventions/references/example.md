@@ -9,7 +9,7 @@ realistic names.
 |---|---|---|---|
 | Variable (Python) | `retry_delay_secs` | `t` | generic single-letter, no unit, requires a comment |
 | Function | `load_checkpoint(path)` | `doStuff(path)` | vague verb, mixed camelCase in a snake_case file |
-| Constant | `RETRY_MAX_ATTEMPTS = 5` | `max = 5` | not upper-snake, name shadows builtin, no domain context |
+| Constant | `RETRY_BASE_MS = 100` | `max = 100` | not upper-snake, name shadows builtin, no unit or domain context |
 | Class | `CheckpointManager` | `checkpoint_manager_class` | wrong casing for a class, redundant `_class` suffix |
 | File (Python) | `checkpoint_manager.py` | `CheckpointManager.py` | PascalCase file name in a snake_case-file project |
 | File (TS) | `checkpoint-manager.ts` | `checkpointManager.ts` | camelCase file name in a kebab-case-file project |
@@ -26,6 +26,8 @@ def doStuff(data):
 # RIGHT — self-describing, consistent casing, prefixed boolean
 def double_validated_amount(order_payload):
     is_valid = order_payload.get("is_valid")
+    if not is_valid:
+        raise InvalidOrderError(order_payload["order_id"])
     validated_amount = order_payload["amount"] * 2
     return validated_amount
 ```
@@ -45,31 +47,32 @@ Once locked, `cancellation_request` is the only term used in code identifiers, D
 fields, UI copy, and docs. `termination` and `churn_record` do not appear anywhere in the
 implementation, even as aliases.
 
-## Versioned-Deprecation Rename — Mini Timeline
+## Versioned-Deprecation Rename of a Public API Field: Mini Timeline
 
 Renaming `cancellation_request` to `subscription_cancellation` after a later design review
-determined the original term was ambiguous with hard account termination:
+determined the original term was ambiguous with hard account termination. Partner systems read
+the field from the public API, so the alias window applies to the API field only; inside the
+system the rename is one complete change:
 
 ```
 2026-05-01  ADR-014 approved: rename cancellation_request -> subscription_cancellation.
             Reason: term collided with unrelated "account termination" flow, causing
             confusion in support tooling. New name declared final.
 
-2026-05-03  New term introduced alongside old:
-              - subscription_cancellation added as the canonical field/class/route name
-              - cancellation_request kept as a deprecated alias (marked
-                `@deprecated: use subscription_cancellation, removal after 2026-06-15`)
-              - all NEW code, UI text, and docs use subscription_cancellation only
+2026-05-03  One complete change inside the system: classes, routes, columns, UI text,
+            docs, and tests use subscription_cancellation only. At the API boundary,
+            responses carry both fields; cancellation_request is a deprecated alias with
+            Deprecation and Sunset headers naming 2026-06-15.
 
-2026-05-03..2026-06-15   Transition window:
-              - existing call sites migrated incrementally, each migration PR touching
-                code + UI + docs + tests together (never a partial rename left mid-file)
-              - both terms coexist ONLY inside the deprecation shim, never in fresh code
+2026-05-03..2026-06-15   Transition window, for API consumers only:
+              - partners move to subscription_cancellation
+              - nothing inside the system uses the old name
 
-2026-06-15  cancellation_request alias removed entirely. Grep for the old term returns
-            zero results outside of the ADR and changelog history.
+2026-06-15  The API alias is removed. Grep for the old term returns zero results outside
+            of the ADR and changelog history.
 ```
 
-This is the allowed pattern from the skill's Failure Modes: a single deliberate, versioned,
-declared-end-date rename, not an unplanned drift where two terms coexist indefinitely with no
-one able to say which is current.
+This is the allowed pattern: one complete rename inside the system, plus an alias window only
+on the public contract, with a declared end date. An internal-only term gets no alias window at
+all. Unplanned drift, where two terms coexist indefinitely with no one able to say which is
+current, is what the rule prevents.

@@ -178,44 +178,10 @@ only for a library or a trivial script, with a reason.]
 
 ## Definition of Done
 
-Run every applicable checklist before marking any task complete.
-
-### Code (common.md + python.md or nodejs.md)
-
-- [ ] All env vars read in src/config/env.py; no os.getenv() at call sites
-- [ ] Required secrets raise EnvironmentError at startup if absent
-- [ ] Optional secrets emit a startup warning when absent
-- [ ] All external calls (network, file I/O, API) wrapped in try/catch with specific types
-- [ ] Retry with exponential backoff on all transient external calls
-- [ ] All logs use structlog or equivalent; no secrets in logs
-- [ ] All public functions have type annotations
-- [ ] All public functions, classes, and modules have JSDoc docstrings
-- [ ] Inline comments explain WHY only, never WHAT
-- [ ] Every public function has at least one happy-path and one failure-path test
-- [ ] External dependencies mocked in unit tests
-
-### AI-IDS (ai-ids-template.md Author Review Checklist)
-
-- [ ] All important terms defined in DEFINITIONS
-- [ ] Exactly one primary objective
-- [ ] All hard constraints in GUARDRAILS, not in GUIDELINES
-- [ ] Input and output contracts explicit with types and required/optional distinction
-- [ ] Deterministic logic in DERIVED LOGIC as an ordered sequence
-- [ ] Allowed assumptions explicitly bounded, no open-ended inference
-- [ ] Ambiguity resolution explicit in REASONING POLICY
-- [ ] FEW SHOT EXAMPLES removable without changing system requirements
-- [ ] Output schema includes a determinism boundary statement
-
-### Documentation (documentation.md Review Checklist)
-
-- [ ] Describes current behaviour, not intended behaviour
-- [ ] Owner declared in frontmatter
-- [ ] Lifecycle state declared (Status: Current | Draft | Deprecated)
-- [ ] All boundary conditions and failure modes covered
-- [ ] An engineer can act on this without reading the source code
-- [ ] References related documentation (ADRs, contracts, runbooks)
-- [ ] ADR exists for every significant technical decision
-- [ ] Data contract exists for every output dataset
+Run the Definition of Done of each Active Skill (or, without Skills, of each canonical doc listed
+in Active Skills) before marking any task complete: its **Per change** items for every task, its
+**Standing** items at release and in `eng-os-audit`. See eng-os-core's Meta Definition of Done for
+the enforcement rule. The checklists are not restated here, so they cannot drift from their source.
 
 ---
 
@@ -337,13 +303,13 @@ Checkpoints define when standards must be verified during implementation. They a
 | Before changing behavior of a shipped feature | A change or bug fix touches a feature with a `.specs/` entry | The entry's requirements were read; a row that is not frozen was edited, or an amending row was added for a frozen one, before code changed (`eng-os-spec-feature` Changing a Shipped Feature) |
 | Before merging a boundary change | New, removed, or split service, data store, queue, external dependency, or trust boundary | `docs/architecture/` views updated in the same PR |
 | Before each module | New source file created | Folder placement matches project-structure.md |
-| Before each public function | Function complete | Type annotations, JSDoc docstring, error handling |
+| Before each public function | Function complete | Type annotations, a docstring per the language standard (JSDoc for TypeScript, Google style for Python), error handling |
 | Before each test file | Test file created | Happy-path and failure-path tests present; deps mocked |
 | Before each .ids file | IDS file created | AI-IDS Author Review Checklist passes |
 | Before each doc file | Doc file created | Status, Owner, lifecycle declared |
 | Before marking a task done | Task complete | Full DoD checklist for the applicable standard |
 | Before closing a feature | Feature verified | Living documents synced or marked unchanged with a reason (`eng-os-execute-feature` Phase 7) |
-| Before the session ends | Work complete | ADR for every significant decision made this session |
+| Before the session ends | Work complete | An ADR for each decision this session that meets the threshold in `meso/documentation.md` 2.1 |
 
 **Checkpoint failures are not warnings.** They are blockers. An agent that skips a checkpoint has drifted from this OS.
 
@@ -399,7 +365,7 @@ Drift is not caused by bad decisions: it is caused by missing structure at the m
 
 **Cause:** ADRs are associated with planning, not implementation. During fast implementation, they are skipped.
 
-**Prevention:** The session-end checkpoint must require an ADR for every significant decision made during the session.
+**Prevention:** The session-end checkpoint must require an ADR for each decision made during the session that meets the threshold in `meso/documentation.md` 2.1.
 
 ---
 
@@ -422,5 +388,5 @@ A project using Claude Code meets this standard when:
 - Bootstrap Steps 0–4 completed and confirmed before Step 5 began
 - Every DoD checklist ran to completion before each task was marked done
 - Every checkpoint was treated as a blocker, not a review
-- ADRs exist for every significant technical decision made during the session
+- an ADR exists for each decision made during the session that meets the threshold in `meso/documentation.md` 2.1
 - No AI-IDS specification is embedded as a code constant; all specs live in `ids/*.ids`

@@ -64,7 +64,7 @@ Informal prompts frequently mix:
 - computation
 
 This causes ambiguity, weak reviewability, and unstable behavior.
-AI-IDS separates these concerns into explicit sections with defined semantics, precedence, and execution dependency.
+AI-IDS separates these concerns into explicit sections with defined semantics, an execution order, and authority rules for conflicts.
 
 ---
 
@@ -77,13 +77,13 @@ Controlled evaluation: 9 articles, 161 sentences, 25 repeated executions.
 | Metric | Baseline | AI-IDS | Change |
 |---|---|---|---|
 | Composite operational consistency | 0.12363 | 0.35985 | +23.6 pp |
-| Operational error rate | 2.2% | 0% | −100% |
+| Operational error rate | 2.236% | 0% | −100% |
 | Lexical consistency (Jaccard) | 0.446 | 0.569 | +12.2% |
 | Iterations to production-grade output | 17.1 | 4.1 | −76% |
 
-Key finding: runtime controls alone (temperature, model selection) were insufficient to close the gap. The ablation showed temperature reduction improved baseline consistency from 0.311 to 0.427, but AI-IDS at the same runtime settings reached 0.359. Structural separation contributed independently to operational consistency beyond what decoding parameters provided.
+Key finding: runtime controls alone (temperature, model selection) were insufficient to close the gap. A 9-configuration ablation across two model families (Claude and GPT), three decoding settings, and three subthread batch sizes found AI-IDS above the baseline in every configuration, by 13.8 to 27.2 percentage points. Structural separation contributed independently to operational consistency beyond what decoding parameters provided.
 
-The zero error rate was not an aggregate artifact; it held in every individual iteration across all 25 rounds, compared to a baseline error rate that ranged from 1.1% to 3.5% per iteration.
+The zero error rate was not an aggregate artifact; it held in every individual iteration across all 25 rounds, compared to a baseline error rate that ranged from 1.12% to 3.48% per iteration.
 
 Reference: Parekh, H.V. *AI Instruction Design Set (AI-IDS): A Structured Instruction Architecture for High Determinism and Low Operational Variance in Production AI Systems* (arXiv: cs.AI, cs.CL, cs.SE).
 
@@ -91,22 +91,26 @@ Reference: Parekh, H.V. *AI Instruction Design Set (AI-IDS): A Structured Instru
 
 ## AI-IDS Section Model
 
+Every spec contains all eleven sections, Core and Extended alike. A section that does not apply contains `None` and one line saying why; it is never omitted. A missing section is then always a mistake, never an ambiguous omission, and every section records a conscious authoring decision. ROLE, OBJECTIVE, and STRUCTURE OF OUTPUT are never `None`.
+
 ### Core Profile
-These sections are required in all conformant specifications:
+Six sections establish meaning, intent, constraints, and contracts:
 - DEFINITIONS
 - ROLE
 - OBJECTIVE
 - GUARDRAILS
 - STRUCTURE OF INPUT
 - STRUCTURE OF OUTPUT
-- GUIDELINES & INSTRUCTIONS
 
 ### Extended Profile
-These sections are conditional and used when specific behavior is required:
+Five sections handle deterministic computation, bounded inference, ambiguity resolution, and guidance:
 - DERIVED LOGIC
 - ASSUMPTIONS
 - REASONING POLICY
+- GUIDELINES & INSTRUCTIONS
 - FEW SHOT EXAMPLES
+
+Core sections govern Extended sections: an Extended section never overrides a Core section.
 
 ---
 
@@ -114,72 +118,81 @@ These sections are conditional and used when specific behavior is required:
 
 ### DEFINITIONS
 Defines execution-time meaning of terms.
+When `None` is appropriate: Only if the specification contains no domain-specific terms requiring disambiguation.
 
 ### ROLE
 Defines system perspective, scope, and responsibility.
+When `None` is appropriate: Never: every system has a role boundary.
 
 ### OBJECTIVE
 Defines the single intended outcome.
+When `None` is appropriate: Never: every system has a measurable outcome.
 
 ### GUARDRAILS
 Defines non-negotiable constraints and failure conditions.
+When `None` is appropriate: Only if the task has no operational constraints; rare in production.
 
 ### STRUCTURE OF INPUT
 Defines the input contract.
+When `None` is appropriate: Only if the system accepts no inputs.
 
 ### STRUCTURE OF OUTPUT
 Defines output contract and determinism boundary.
+When `None` is appropriate: Never: every system produces output.
 
 ### DERIVED LOGIC
 Defines explicit deterministic computation.
+When `None` is appropriate: When all computation is expressed through GUARDRAILS and REASONING POLICY alone.
 
 ### ASSUMPTIONS
 Defines explicitly allowed inference for incomplete inputs.
+When `None` is appropriate: When inputs are always complete and no inference under missing data is required.
 
 ### REASONING POLICY
 Defines deterministic ambiguity resolution.
+When `None` is appropriate: When no ambiguous cases exist and GUARDRAILS fully governs all decision paths.
 
 ### GUIDELINES & INSTRUCTIONS
 Provides non-authoritative guidance that may influence phrasing but not override constraints or logic.
+When `None` is appropriate: When the specification is fully governed by constraints and no guidance adds operational value.
 
 ### FEW SHOT EXAMPLES
 Provides illustrative examples that are non-authoritative.
+When `None` is appropriate: When the output structure is sufficiently defined by STRUCTURE OF OUTPUT alone.
 
 ---
 
-## Authoritative Precedence Order
+## Three Orders
 
-1. DEFINITIONS
-2. ROLE
-3. OBJECTIVE
-4. GUARDRAILS
-5. STRUCTURE OF INPUT
-6. ASSUMPTIONS
-7. REASONING POLICY
-8. DERIVED LOGIC
-9. STRUCTURE OF OUTPUT
-10. GUIDELINES & INSTRUCTIONS
-11. FEW SHOT EXAMPLES
+AI-IDS has three separate orders. Reading one as another is the most common authoring error: the execution order is not a vote order, and the document order is not a ranking.
 
-### Important Distinction
-Section ordering in a document is not the same as runtime dependency or authority.
-Semantics define meaning.
-Precedence defines conflict resolution.
-Execution dependency defines runtime flow.
+### Document Order
+How a spec is written and read: DEFINITIONS, ROLE, OBJECTIVE, GUARDRAILS, STRUCTURE OF INPUT, STRUCTURE OF OUTPUT, DERIVED LOGIC, ASSUMPTIONS, REASONING POLICY, GUIDELINES & INSTRUCTIONS, FEW SHOT EXAMPLES. It reflects semantic definition, not runtime execution.
 
----
-
-## Execution Dependency Chain
+### Execution Order
+Set by data dependencies, not by document order (the execution dependency chain):
 
 1. Resolve definitions and role
-2. Fix intended scope and objective
+2. Fix the objective
 3. Apply guardrails
-4. Validate input contract
-5. Apply allowed assumptions where inputs are incomplete
-6. Resolve ambiguity using reasoning policy
-7. Execute derived logic deterministically
-8. Enforce output contract
-9. Allow guidelines and examples to influence phrasing only where they do not conflict with any higher section
+4. Validate the input contract
+5. Apply allowed assumptions
+6. Resolve ambiguity by reasoning policy
+7. Execute derived logic
+8. Enforce the output contract
+
+GUIDELINES & INSTRUCTIONS and FEW SHOT EXAMPLES are influence only and never override a constraint or computation.
+
+### Authority
+Which section governs a conflict:
+
+- GUARDRAILS holds the highest constraint authority and overrides all lower-precedence sections.
+- Core sections govern Extended sections; an Extended section never overrides a Core section.
+- Constraints override preference and stylistic guidance.
+- GUIDELINES & INSTRUCTIONS and FEW SHOT EXAMPLES never override constraints or execution logic, and examples never define a constraint or logic.
+- A conflict these rules do not settle is a defect in the specification: rewrite the sections so they agree. Never leave the choice to the model.
+
+Semantics define meaning; the execution order defines runtime flow; the authority rules define conflict resolution.
 
 ---
 
@@ -187,7 +200,7 @@ Execution dependency defines runtime flow.
 
 Determinism is enforced through:
 - explicit section semantics
-- explicit precedence
+- explicit authority rules for conflicts (Three Orders)
 - bounded inference
 - deterministic derivation
 - schema-constrained outputs
@@ -393,9 +406,9 @@ than adapting how it's surfaced, is not an acceptable trade-off.
 
 ### Versioning
 
-Every `.ids` file carries a version in its metadata header, bumped on any change to a Core
-Profile section (a GUARDRAILS edit is a breaking change to the system's behavior even if the
-output schema is unchanged). The harness logs the spec version on every inference so an output
+Every `.ids` file carries a version in its metadata header, bumped on any section change (a
+GUARDRAILS edit is a breaking change to the system's behavior even if the output schema is
+unchanged, and a GUIDELINES or FEW SHOT EXAMPLES edit changes behavior too). The harness logs the spec version on every inference so an output
 can always be attributed to the exact spec text that produced it. Old versions are retained in
 version control and in the prompt registry; a rollback of a spec is a redeploy of a prior
 version, not an edit.
@@ -421,14 +434,12 @@ metrics. Exceeding the budget is a failed evaluation, not a surprise on the invo
 ## Definition of Done
 
 An AI deterministic system is ready when:
-- IDS sections are complete and semantically correct
-- precedence and execution behavior are clear
-- input and output contracts are explicit
-- bounded inference is declared where needed
-- deterministic logic is explicit where needed
-- outputs are validated before downstream use
-- correctness and variance are measurable
-- the output contract declares what must be exposed for observability (scorer/spec name and version, timestamp, and token counts) per the Observability UI Contract
-- the spec carries a version, bumped on any Core Profile change, and the harness logs it per inference
-- the spec names its evaluation fixtures and thresholds, and the evaluation runs in CI on spec, model, or provider change
-- the spec declares input/output token ceilings and a p95 latency target derived from the Scale Targets, enforced by the harness
+
+All items are Per change: this domain has no Standing (release and audit) items.
+
+- the Author Review Checklist passes (`meso/ai-ids-template.md`); it covers the spec text itself: all eleven sections, the three orders, the contracts, and the metadata fields
+- outputs are validated against the output contract before downstream use
+- the harness logs the spec version on every inference
+- the evaluation runs in CI on every spec, model, or provider change, against the fixtures and thresholds the metadata names
+- the harness enforces the token budget the metadata declares and emits the actual counts as metrics
+- the observability exposure the metadata declares is implemented, per the Observability UI Contract

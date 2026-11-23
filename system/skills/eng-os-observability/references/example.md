@@ -1,40 +1,50 @@
-# Worked Example: AI-IDS Observability UI — Scoring Run Card
+# Worked Example: One Service's Signals
 
-This shows the AI-IDS Observability UI rules from `SKILL.md` applied to one real AI call. The
-underlying log/metric record shapes emitted for this call follow `standard-data-models.md`
-(AI generation boundary), not repeated here.
+Source: illustrates `../SKILL.md` Signal Design by Boundary, Metric Cardinality Budget, Trace
+Sampling, Log Persistence, and Interoperability Standard, applied to one service: `order-api`, an
+HTTP API with a Postgres database and one downstream call to a payment provider. Record shapes
+follow `standard-data-models.md`.
 
-## Scenario
+## Metric Declarations (`src/shared/telemetry/metrics.ts`)
 
-A data-catalog product runs a `dataset-quality-assessor` scorer against an uploaded dataset to
-produce a quality grade shown to the user.
+Every metric is declared once, with its labels and the most distinct values each label may take.
 
-## Scoring Run card — rendered inline next to the result
+| Metric | Type, unit | Labels (maximum distinct values) | Why bounded |
+|---|---|---|---|
+| `http.server.request.duration` | histogram, seconds (buckets 0.05, 0.1, 0.2, 0.4, 0.8, 1.6) | `http.route` (40), `http.request.method` (5), `http.response.status_code` (12) | route template `/orders/{id}`, never the raw path `/orders/8812` |
+| `http.client.request.duration` | histogram, seconds | `server.address` (3), `http.response.status_code` (12) | three named downstream hosts |
+| `db.client.operation.duration` | histogram, seconds | `db.operation.name` (6) | fixed statement kinds |
+| `order.placement.result_count` | counter | `result` (4: `placed`, `rejected_stock`, `rejected_payment`, `failed`) | custom metric: `{service}.{operation}.{unit}` |
+
+Series budget: 40 × 5 × 12 × 7 buckets is 16,800 series for the request histogram; the service total
+is held under 25,000 active series. An alert fires at 80% of the budget, and a new label needs a
+row in this table first. `customer_id` and `order_id` are never labels: they go on logs and traces.
+
+## Trace Sampling Policy
+
+- Head-based: keep 10% of traces, decided once at the entry point and carried in `traceparent`, so
+  every hop keeps or drops the same trace.
+- Tail rules at the collector: keep every trace with an error status, every trace whose root span
+  exceeded the 400ms latency SLO, and every trace carrying a debug flag.
+
+## One Hop, Traced
+
+The inbound request carries `traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01`.
+The service extracts it with the OpenTelemetry propagator, starts a server span as its child, and
+binds `trace_id` and `span_id` once in the context store. The payment call writes a new
+`traceparent` with the same trace id and the client span's id, through `propagation.inject`. Every
+log line on both sides carries the same `trace_id` with no argument threading:
 
 ```
-┌─ Scoring Run ──────────────────────────────────────────────┐
-│ Scorer: dataset-quality-assessor v1.2                      │
-│ Run at: 2026-07-01 14:32:07 UTC                             │
-│ Tokens: 412 in / 89 out                                     │
-│ Result: Quality grade B+ (schema_valid: true)               │
-│ [ View provenance ]                                          │
-└──────────────────────────────────────────────────────────────┘
+{"timestamp":"2026-11-22T10:15:02.114Z","level":"INFO","message":"order placed","trace_id":"4bf92f3577b34da6a3ce929d0e0e4736","span_id":"00f067aa0ba902b7","service":"order-api","version":"2.3.0","env":"prod","order_id":"ord-8812"}
 ```
 
-This card sits directly beside the "Quality grade: B+" result on the dataset detail page, not in
-a separate admin dashboard. Clicking "View provenance" opens the full AI-IDS record for this run:
-ROLE, OBJECTIVE, GUARDRAILS, the exact input passed to the scorer, and its raw output, reachable
-without the user or support engineer needing to look up a `trace_id` by hand.
+## Log Persistence
 
-## Scale caveat applied to a high-QPS example
+| `EXECUTION_MODE` | Minimum level | Sink | Rotation | Retention |
+|---|---|---|---|---|
+| `dev` | DEBUG | rotating file `logs/order-api.log` | daily, keep 7 files | 7 days |
+| `stage` | INFO | managed log service | by the service | 14 days |
+| `prod` | WARN | managed log service | by the service | 30 days, then archived 1 year |
 
-The dataset-quality-assessor above runs once per manual upload, so inline detail on every result is
-free. Contrast with a hypothetical real-time feed-scoring scorer (`feed-relevance-scorer`) called
-on every item in an infinite-scroll feed at ~2,000 QPS: rendering a full inline Scoring Run card on
-every single item would flood the UI and the backend that serves card metadata.
-
-Adaptation for that case: render no inline card by default; sample roughly 1 in every 200 results
-(~10 QPS) for full inline detail, and make full provenance available on-demand via "View
-provenance" for *any* result, sampled or not, by looking up its `run_id` on request rather than
-pre-rendering it. This satisfies the rule's intent (provenance must be reachable, not
-unauditable) without paying the inline-rendering cost on every one of 2,000 results per second.
+Standard out alone is never the sink: a restart mid-incident would erase the only copy.

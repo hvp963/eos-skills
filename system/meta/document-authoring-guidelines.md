@@ -69,7 +69,8 @@ Guidance belongs in:
 ### 8. Separate semantics from execution
 Especially for AI-IDS:
 - semantics describe what sections mean
-- execution defines precedence and dependency
+- execution order defines runtime dependency
+- authority rules define which section governs a conflict
 Do not mix these casually.
 
 ### 9. Avoid over-duplication
@@ -78,6 +79,11 @@ Do explain how terms apply in context.
 
 ### 10. Prefer concise depth over shallow breadth
 A smaller number of complete, useful sections is better than many thin sections.
+
+### 11. No restated-generic bullets in a specific section
+For every bullet in a project-specific section, strip proper nouns, file paths, and values from its
+claim and search the generic section for the same stripped claim. A match means the bullet is a
+duplicate: delete it or replace it with a one-line pointer ("resolves to `<path>` here").
 
 ---
 
@@ -148,3 +154,18 @@ Each file should answer this question:
 "If an engineer or AI agent used only this file plus the glossary, could they make materially better decisions?"
 
 If the answer is no, the file needs more substance.
+
+---
+
+## Definition of Done
+
+All items are Per change: this domain has no Standing (release and audit) items.
+
+- the file states what it is, what it is not, where it applies
+- principles are applied in context, not merely listed
+- patterns and failure modes are present where the layer requires them (Required Structure by Layer)
+- terminology matches the glossary; no unexplained synonyms introduced
+- rules and guidance are kept in separate sections
+- the file is independently useful without requiring another file to be open simultaneously
+- the file passes the guiding-standard question above
+- every specific-section bullet passed the Rule 11 duplicate test against the generic section

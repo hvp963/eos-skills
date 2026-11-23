@@ -67,10 +67,12 @@ Read these files first:
 ---
 
 ### Tooling that runs on every contribution
-- `python tools/lint-os.py` must pass before a commit; CI runs it on every push and pull request. It checks skill frontmatter (including a double-quoted `description`), `sources:` paths, skill counts across the index files, relative links, backticked file paths, that every `references/` file is named in its `SKILL.md`, that text copied from a canonical doc is sourced, the em-dash rule, and the message-code format.
+- `python tools/lint-os.py` must pass before a commit; CI runs it on every push and pull request. It checks skill frontmatter (including a double-quoted `description`), `sources:` paths, skill counts across the index files, relative links, backticked file paths, that every `references/` file is named in its `SKILL.md`, that text copied from a canonical doc is sourced, the em-dash rule (table cells included, with a begin/end pair around a demonstration of the banned pattern), the message-code format, retired terms, and that every `Standard N` citation matches `micro/coding-standards/common.md`.
 - A new rule, gate, or pattern adds a row to `evidence/ledger.md` in the same change, and `skills/MINDMAP.md` cites it by id if it changes a tier.
 - A decision that meets the threshold in `meso/documentation.md` 2.1 gets an ADR in `docs/decisions/`.
 - After adding a skill, re-run `tools/install.ps1` or `tools/install.sh` and confirm the skill appears in a fresh session before widening its `verified_platforms`.
+- Every CHANGELOG entry lists the canonical and skill files changed, side by side, so a reader can confirm each rule changed in both places and in the same release.
+- Before each release is tagged, run an OS self-audit: walk each skill against its canonical source and its examples, and sweep for drift the lint cannot see (a rule changed in one place only, an example that no longer follows its rule).
 - Releases are tagged with the `VERSION` value; downstream projects pin that tag in their CLAUDE.md.
 
 ---

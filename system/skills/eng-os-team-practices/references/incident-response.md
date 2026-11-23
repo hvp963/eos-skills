@@ -161,5 +161,7 @@ failures that recur.
 
 ## Definition of Done (incident response)
 
+All items are Standing (release and audit): they describe the team's ongoing practice, verified at release and by `eng-os-audit`, not by each task.
+
 - [ ] Incident severity levels are defined and the response protocol for each is documented
 - [ ] Every P1/P2 postmortem is published within 5 business days with owned, dated corrective actions

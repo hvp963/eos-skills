@@ -13,9 +13,11 @@ infra/
     region/          composes N cells + one control plane
   envs/
     dev.tfvars       cells = 1, instance_size = small, db_size = small
-    stage.tfvars     cells = 1, instance_size = medium, db_size = medium   (25% of prod capacity model)
+    stage.tfvars     cells = 1, instance_size = medium, db_size = medium, standby_region = "eu-west-2", standby_size = small
+                     (25% of prod capacity model; same topology as prod, smaller)
     prod.tfvars      cells = 2, instance_size = large,  db_size = large, standby_region = "eu-west-2"
-  README.md          lists every dev/stage/prod difference in one table
+  drift-check.yml    scheduled plan against each environment (daily for prod); a non-empty plan alerts and opens a ticket
+  README.md          lists every dev/stage/prod difference in one table: scale, secrets, and endpoints only
 ```
 
 Every `.tfvars` file differs only in the variables above plus secret references. The pipeline

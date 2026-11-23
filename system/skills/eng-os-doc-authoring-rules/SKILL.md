@@ -23,7 +23,7 @@ to write the OS documents/skills themselves, not application code.
 5. **Include patterns and failure modes.** Every meso/micro artifact should cover recommended patterns, common mistakes, likely failure modes, and expected validation criteria.
 6. **Use glossary terms consistently.** Reuse defined terms; don't introduce alternate names for the same concept unless the distinction matters.
 7. **Separate rules from guidance.** Rules belong in principles/quality attributes/contracts/guardrails. Guidance belongs in design patterns/examples/usage notes.
-8. **Separate semantics from execution.** Especially for AI-IDS: semantics describe what sections mean, execution defines precedence and dependency; don't mix these casually.
+8. **Separate semantics from execution.** Especially for AI-IDS: semantics describe what sections mean, execution order defines runtime dependency, and authority rules define which section governs a conflict; don't mix these casually.
 9. **Avoid over-duplication.** Don't copy entire glossary definitions into every file; explain how terms apply in context instead.
 10. **Prefer concise depth over shallow breadth.** A smaller number of complete, useful sections beats many thin sections.
 11. **No restated-generic bullets in a specific section.** Test: for every bullet in a "project-specific" section, strip proper nouns, file paths, and values from its claim and search the generic section for the same stripped claim. A match means the bullet is a duplicate: delete it or replace it with a one-line pointer ("resolves to `<path>` here").
@@ -71,6 +71,8 @@ glossary, could they make materially better decisions?"** If the answer is no, t
 more substance.
 
 ## Definition of Done
+
+All items are Per change: this domain has no Standing (release and audit) items.
 
 - [ ] the file states what it is, what it is not, where it applies
 - [ ] principles are applied in context, not merely listed

@@ -65,11 +65,11 @@ Each engineering discipline produces different documentation artifacts. The tabl
 | Model Card | ML / AI | Documents a model's purpose, training data, performance, limitations, and usage policy | `docs/models/` or model registry |
 | Prompt Registry | AI | Catalogs versioned prompts with intent, inputs, outputs, and evaluation results | `docs/prompts/` or AI system registry |
 | Evaluation Log | AI | Records results of AI system evaluation runs against defined quality metrics | `docs/eval/` or experiment tracker |
-| Onboarding Guide | All | Helps a new engineer become productive — system overview, local setup, key concepts | `docs/onboarding/` or team wiki |
+| Onboarding Guide | All | Helps a new engineer become productive: system overview, local setup, key concepts | `docs/onboarding/` or team wiki |
 | Architecture Views (C4) | All | Shows the system's context, containers, and where needed components, as text diagrams that match the code | `docs/architecture/` |
 | Feature Spec | Software | Records what one feature must do (EARS criteria), how it is built, and its tasks | `.specs/<feature>/` |
 | README | All | Says what the project is and how to install, configure, run, and test it | Project root |
-| Design Document | All | Explains the design of a system at a level above code — trade-offs, patterns, constraints | `docs/design/` or linked in PRs |
+| Design Document | All | Explains the design of a system at a level above code: trade-offs, patterns, constraints | `docs/design/` or linked in PRs |
 | Release Notes | Product / Platform | Communicates system changes, behavioral updates, deprecations, and migration steps to external customers | Customer portal, docs site, or email |
 | API Changelog | Software | Versioned log of API changes: additions, modifications, deprecations, breaking changes | Docs site, `CHANGELOG.md`, or API reference |
 | Migration Guide | Software / Platform | Step-by-step instructions for customers moving from a deprecated interface to its replacement | Docs site, linked from release notes |
@@ -80,11 +80,19 @@ Each engineering discipline produces different documentation artifacts. The tabl
 
 An ADR captures a significant design choice that would otherwise exist only in someone's memory or in a long Slack thread.
 
-**Write an ADR when:**
-- choosing between two or more non-trivial technical approaches
-- adopting or deprecating a platform, library, or pattern
-- making a trade-off with long-term consequences (consistency vs. availability, build vs. buy)
-- establishing a standard that will govern future work
+**Write an ADR when at least one holds.** The rule needs a threshold, or ADRs become a log of
+every choice and nobody reads them:
+- it is expensive to reverse (a schema shape, a storage engine, a public contract, a
+  dependency other services will build on)
+- it deviates from a documented pattern in this OS or the project's CLAUDE.md
+- it changes a Terminology Lock term, a Message Area Code, or a Scale Target
+- two or more viable approaches were considered and a later reader could reasonably ask why
+
+When unsure, ask: "would a new engineer six months from now need this to avoid re-litigating it?"
+If yes, write the ADR. Otherwise, record the choice in the commit message (or the task summary
+where the project has no commits): a decision that is local, cheap to reverse, and follows the
+documented pattern (which library function to call, how to name a private helper, the order of
+two independent tasks) does not get an ADR.
 
 **An ADR must include:**
 - the context: what was the problem and what constraints applied
@@ -97,22 +105,6 @@ ADRs are immutable once accepted. If a decision changes, a new ADR supersedes th
 See `micro/templates/adr-template.md` for the authoring template.
 
 ---
-
-### When an ADR Is Not Required
-
-The rule "an ADR for every significant decision" needs a threshold, or ADRs become a log of
-every choice and nobody reads them. A decision requires an ADR when at least one holds:
-
-- it is expensive to reverse (a schema shape, a storage engine, a public contract, a
-  dependency other services will build on)
-- it deviates from a documented pattern in this OS or the project's CLAUDE.md
-- it changes a Terminology Lock term, a Message Area Code, or a Scale Target
-- two or more viable approaches were considered and a later reader could reasonably ask why
-
-A decision that is local, cheap to reverse, and follows the documented pattern (which library
-function to call, how to name a private helper, the order of two independent tasks) is recorded
-in the commit message, not an ADR. When unsure, ask: "would a new engineer six months from now
-need this to avoid re-litigating it?" If yes, write the ADR.
 
 ## 2.2 API and Contract Documentation
 
@@ -133,10 +125,11 @@ Response 200:
   { "id": string, "status": "pending|confirmed|shipped|delivered", "total_cents": integer }
 
 Response 404:
-  { "error": "order_not_found", "order_id": string }
+  { "error": { "type": "not_found", "code": "order_not_found", "message": string,
+               "api_version": "v1", "request_id": string } }      // the envelope in meso/api-design.md, Error Contract
 
 Response 401:
-  Returned when the Authorization header is missing or invalid.
+  Returned when the Authorization header is missing or invalid; same envelope, type "unauthenticated".
 ```
 
 ---
@@ -190,6 +183,10 @@ A runbook gives an operator enough information to act during an incident or rout
 ```
 // runbook structure
 # Runbook: Orders Pipeline
+
+Status: Current
+Owner: data-platform
+Last Reviewed: 2026-11-01
 
 ## System Summary
 Consumes order events from Kafka, enriches with customer profile, writes to orders warehouse table.
@@ -376,7 +373,7 @@ Systems at different stages require different documentation coverage.
 // minimum viable documentation — any system entering production
 □ Onboarding summary (what is this, how do I run it locally)
 □ API or data contract documentation
-□ At least one ADR for the primary technology choice
+□ An ADR for each decision meeting the threshold in 2.1 (the primary technology choice usually does)
 □ Basic runbook (health check + one recovery procedure)
 □ C4 Context and Container views in docs/architecture/
 
@@ -410,10 +407,16 @@ Systems at different stages require different documentation coverage.
 ## Definition of Done
 
 A system is documented to this standard when:
+
+### Per change
+
 - every production-facing interface has current contract documentation
-- at least one ADR exists capturing the primary technology and architecture choices
+- documentation was reviewed in the same PR as the code change that affected behavior
+- ADRs exist for every decision that meets the threshold in 2.1 (expensive to reverse, deviates from a pattern, changes a locked term or target, or chose between viable alternatives); cheaper local choices are recorded in commit messages instead
+
+### Standing (release and audit)
+
+- an ADR exists for each decision meeting the threshold in 2.1; the primary technology and architecture choices usually do
 - a runbook exists with at minimum: health check, one failure recovery procedure, escalation path
 - all documentation declares owner and lifecycle state
-- documentation was reviewed in the same PR as the code change that affected behavior
 - AI systems have a current prompt registry entry and at least one evaluation log
-- ADRs exist for every decision that meets the threshold in 2.1 (expensive to reverse, deviates from a pattern, changes a locked term or target, or chose between viable alternatives); cheaper local choices are recorded in commit messages instead

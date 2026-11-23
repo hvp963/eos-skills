@@ -36,6 +36,7 @@ A guided template for authoring an AI-IDS specification that engineers and AI ag
 6. Put allowed inference in assumptions only
 7. Put ambiguity resolution in reasoning policy only
 8. Use guidelines and examples only as influence, never authority
+9. Fill all eleven sections; where one does not apply, write `None` and one line saying why
 
 ---
 
@@ -293,8 +294,8 @@ Required:
   incident_id       string     unique identifier for the incident
   severity          enum       P1 | P2 | P3
   start_time        datetime   ISO 8601
-  end_time          datetime   ISO 8601; null if not yet resolved
-  affected_services list       one or more service names (customer-facing names only)
+  end_time          datetime   ISO 8601; never null: the pre-processing gate skips unresolved incidents
+  affected_services list       one or more service names; internal names are normalized in DERIVED LOGIC step 1
   customer_impact   string     description of what customers experienced; may be null
 
 Optional:
@@ -316,7 +317,7 @@ Optional:
   "customer_impact":  string,         // one sentence; what customers experienced
   "root_cause":       string | null,  // one sentence; null if not confirmed
   "resolution":       string,         // one sentence; what restored service
-  "status":           string          // "resolved" | "monitoring" | "investigating"
+  "status":           string          // "resolved" | "monitoring"
 }
 ```
 
@@ -327,26 +328,29 @@ Determinism boundary: equivalent inputs produce structurally identical JSON afte
 ### DERIVED LOGIC
 
 ```
-1. Compute duration_minutes = (end_time - start_time) in whole minutes.
-   If end_time is null, set status = "investigating" and duration_minutes = null.
+CUSTOMER_FACING_SERVICES = ["Order API", "Checkout", "Account Portal", "Status Page"]
 
-2. Set status:
-   - "resolved" if end_time is present and resolution_steps is present
-   - "monitoring" if end_time is present but resolution_steps is absent
-   - "investigating" if end_time is null
+1. Normalize affected_services: keep each name in CUSTOMER_FACING_SERVICES; replace every
+   other name with "one or more platform services", listed once.
 
-3. Build customer_impact:
+2. Compute duration_minutes = (end_time - start_time) in whole minutes.
+
+3. Set status:
+   - "resolved" if resolution_steps is present
+   - "monitoring" if resolution_steps is absent
+
+4. Build customer_impact:
    - if customer_impact input is present: normalize to one sentence, strip internal terms
    - if customer_impact input is null: set to "Impact is under investigation."
 
-4. Build root_cause:
+5. Build root_cause:
    - if root_cause input is present: normalize to one sentence
    - if root_cause input is null: set field to null
 
-5. Build summary: combine severity, duration, affected services, and customer_impact
+6. Build summary: combine severity, duration, normalized affected services, and customer_impact
    into 2–4 plain-language sentences. Do not add information not present in the input.
 
-6. Validate output against STRUCTURE OF OUTPUT schema before returning.
+7. Validate output against STRUCTURE OF OUTPUT schema before returning.
    Reject and raise if any required field is missing or violates its constraint.
 ```
 
@@ -355,10 +359,7 @@ Determinism boundary: equivalent inputs produce structurally identical JSON afte
 ### ASSUMPTIONS
 
 ```
-1. If severity is not provided, assume P2.
-2. If affected_services contains internal names not recognizable to customers,
-   replace with "one or more platform services."
-3. If timeline is provided but root_cause is not, do not infer root_cause from timeline events.
+1. If timeline is provided but root_cause is not, do not infer root_cause from timeline events.
 ```
 
 ---
@@ -391,6 +392,7 @@ Determinism boundary: equivalent inputs produce structurally identical JSON afte
 
 ```
 Input:
+  incident_id: INC-2026-0530
   severity: P1
   start_time: 2026-05-30T09:00:00Z
   end_time: 2026-05-30T10:12:00Z
@@ -425,26 +427,28 @@ Note: this example illustrates the intended shape and tone. It is not authoritat
 
 ## Author Review Checklist
 
-- [ ] Are all important terms defined in DEFINITIONS?
-- [ ] Is there exactly one primary objective?
-- [ ] Are all hard constraints in GUARDRAILS, not in GUIDELINES?
-- [ ] Are input and output contracts explicit with types and required/optional distinction?
-- [ ] Is deterministic logic written only in DERIVED LOGIC as an ordered sequence?
-- [ ] Are allowed assumptions bounded explicitly, no open-ended inference?
-- [ ] Is ambiguity resolution explicit in REASONING POLICY?
-- [ ] Could FEW SHOT EXAMPLES be removed without changing system requirements?
-- [ ] Does the output schema include a determinism boundary statement?
+The one checklist for every spec; the skill and `micro/templates/ai-ids-template.md` copy it verbatim.
+
+- [ ] All eleven sections present; a section that does not apply contains `None` and one line saying why (ROLE, OBJECTIVE, and STRUCTURE OF OUTPUT are never `None`)
+- [ ] All important terms defined in DEFINITIONS
+- [ ] Exactly one primary objective stated
+- [ ] All hard constraints in GUARDRAILS: none hidden in GUIDELINES or examples
+- [ ] Input contract explicit with types and required/optional distinction
+- [ ] Output contract explicit with field types and determinism boundary stated
+- [ ] All deterministic logic in DERIVED LOGIC as a finite ordered sequence
+- [ ] All allowed assumptions bounded: no open-ended inference permitted
+- [ ] Ambiguity resolution explicit in REASONING POLICY
+- [ ] No two sections give different instructions for the same case unless the authority rules settle which governs
+- [ ] FEW SHOT EXAMPLES could be removed without changing system requirements
+- [ ] Metadata declares the version-bump rule (any section change), the evaluation fixtures and thresholds, the token and latency budget, the observability exposure, and the data classifications the spec accepts
+- [ ] Prompt registry entry created in `docs/prompts/prompt-NNN-kebab-title.md`
 - [ ] If any pre-processing gate (skip conditions) or post-processing step exists outside this
-      call, does the spec name it and point to where it lives, without absorbing its logic?
+      call, the spec names it and points to where it lives, without absorbing its logic
 
 ---
 
 ## Definition of Done
 
-An IDS spec is complete when:
-- semantics are explicit
-- constraints are explicit
-- contracts are explicit
-- allowed inference is bounded
-- deterministic logic is visible
-- examples are optional rather than authoritative
+An IDS spec is complete when the Author Review Checklist above passes. Runtime readiness
+(output validation, version logging, evaluation in CI, budget enforcement, observability exposure)
+is the Definition of Done in `meso/ai-deterministic-systems.md`.

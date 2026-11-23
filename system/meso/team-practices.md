@@ -56,7 +56,8 @@ Code review has two purposes: verifying correctness before a change merges, and 
 ```
 rules:
     minimum_reviewers:      1 for routine changes; 2 for architectural or security changes
-    author_cannot_approve:  true — self-approval is not permitted
+    author_cannot_approve:  true (self-approval is not permitted)
+    agent_authored:         approved by a registered human; an agent review is a comment, not an approval
     reviewer_selection:
         primary:    an engineer familiar with the affected domain
         secondary:  required for: schema changes, security-touching code,
@@ -66,6 +67,8 @@ rules:
         urgent:     within 2 hours (flag in PR description)
         blocking:   communicate blockage to author; do not let PRs sit silently
 ```
+
+A change authored by an agent is approved by a registered human. An agent never approves its own change or one authored by another agent in the same task or workflow; an agent review is recorded as a comment, not an approval.
 
 ### Review Comment Taxonomy
 
@@ -111,7 +114,7 @@ testability and tests:
 standards compliance:
     - does the code meet micro/coding-standards/ for the relevant language?
     - is the naming consistent with meso/code-conventions.md?
-    - are public functions documented with JSDoc-style docstrings?
+    - are public functions documented with docstrings per the language standard (JSDoc for TypeScript, Google style for Python; `micro/coding-standards/common.md` Standard 10)?
 
 contracts:
     - if a public API, event schema, or data contract changed, is it versioned?
@@ -694,6 +697,14 @@ Deliberate debt that is not logged at incurrence becomes invisible and unowned w
 ## Definition of Done
 
 Team practices are in place when:
+
+### Per change
+
+- deliberate debt has an ADR and a resolution target at the point it is incurred
+- an agent-authored change is approved by a registered human; no agent approved its own change or another agent's
+
+### Standing (release and audit)
+
 - code review criteria are written down and applied consistently: labeling conventions are used on every review
 - PRs consistently include a description covering what changed, why, and how to verify
 - incident severity levels are defined and the response protocol for each is documented
@@ -701,5 +712,4 @@ Team practices are in place when:
 - on-call rotation handoffs are written and cover incidents, known issues, and toil
 - toil items identified during on-call are filed as tickets and reviewed quarterly
 - every technical debt item has a description, owner, priority, and creation date
-- deliberate debt has an ADR and a resolution target at the point it is incurred
 - the team reserves a defined percentage of sprint capacity for debt reduction

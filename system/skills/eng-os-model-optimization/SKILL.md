@@ -1,6 +1,6 @@
 ---
 name: eng-os-model-optimization
-description: "Use when tuning an AI-assisted coding workflow for token cost, latency, or output quality: prompt caching, context budgeting, effort/reasoning settings, subagent parallelization, tool-use shaping. Provider-specific tactics in references/."
+description: "In a project governed by the Engineering OS, use when tuning an AI-assisted coding workflow for token cost, latency, or output quality: prompt caching, context budgeting, effort/reasoning settings, subagent parallelization, tool-use shaping. Provider-specific tactics in references/."
 sources:
   - meta/agent-operations.md
 globs: ["**/*"]
@@ -167,6 +167,8 @@ needs the deeper reference material, not by default.
 
 ## Definition of Done
 
+### Per change
+
 - Static/cacheable content is ordered before volatile content in every prompt structure touched
 - No always-loaded file grew without a corresponding attempt to move detail to `references/`
 - Independent sub-tasks in this session ran in parallel, not serially, unless a stated dependency required otherwise
@@ -177,3 +179,7 @@ needs the deeper reference material, not by default.
 - Any assumption made was stated once, briefly, rather than escalated into a blocking question
 - If two attempts at the same fix failed, work stopped and the blocker was summarized rather than
   continuing to iterate
+
+### Standing (release and audit)
+
+- The always-loaded instruction set was reviewed this release and detail moved to `references/`

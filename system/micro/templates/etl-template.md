@@ -19,11 +19,13 @@ Starter checklist for data ingestion and transformation pipelines.
 - input schema defined
 - output schema defined
 - versioning strategy defined
+- classification, retention, and lineage recorded per dataset
 
 ### Correctness
 - idempotency addressed
 - de-duplication strategy defined
 - replay/backfill implications understood
+- delivery guarantee and watermark policy declared at each boundary
 
 ### Scale
 - partitioning strategy defined

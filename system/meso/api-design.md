@@ -44,6 +44,47 @@ APIs must expose meaningful latency, error, and usage signals.
 ### Explicit Schema Validation
 Validate structure and required fields before processing.
 
+### Error Contract
+
+Every error response, on every endpoint, carries one envelope, declared here as part of the API contract:
+
+```json
+{
+  "error": {
+    "type":         "business_rule_error",
+    "code":         "insufficient_stock",
+    "message":      "SKU-1002 has 0 units available.",
+    "message_code": "ORD000014",
+    "field":        "items[1].sku",
+    "api_version":  "v1",
+    "request_id":   "req_3fa8c1"
+  }
+}
+```
+
+- `type`: one of the types in the table below.
+- `code`: the machine code, stable for that error, that clients branch on.
+- `message`: human-readable text; never internals, stack traces, or SQL.
+- `message_code`: present when the message is shown to a user; the `{AAA}{NNNNNN}` code from `eng-os-coding-standards-common` Standard 3.
+- `field`: present when one input field caused the error.
+- `api_version` and `request_id`: always present, so a client report can be traced.
+
+The layer that rejects a request decides its status (`eng-os-coding-standards-common` Standard 13), and the one error-handling middleware maps the error type to the status and the envelope:
+
+| Status | `type` | Raised as | When |
+|---|---|---|---|
+| `400` | `validation_error` | `ValidationError`, by the controller's schema | The request is malformed or fails shape validation (a missing field, a wrong type, a value out of range) |
+| `422` | `business_rule_error` | `BusinessRuleError`, by the service | The request is well-formed but fails a business rule (not enough stock, a retired service) |
+| `409` | `conflict` | `ConflictError`, by the service or repository | The request conflicts with current state (a version mismatch, a duplicate key, an invalid state transition) |
+| `429` | `rate_limited` | the rate limiter | The caller exceeded its rate limit; the response carries `Retry-After` |
+
+`401`, `403`, `404`, and `5xx` responses use the same envelope (`unauthenticated`, `forbidden`, `not_found`, `internal_error`, `unavailable`); a `5xx` message is generic and a `503` carries `Retry-After` when the wait is known.
+
+#### Failure Mode
+Four error shapes across one API's endpoints make every client write four parsers; a status chosen by habit (`422` for a missing field, `400` for a business rule) leaves clients unable to tell "fix your request" from "the request was valid and refused".
+
+---
+
 ### Versioning
 Use additive evolution when possible and plan explicitly for breaking changes.
 
@@ -74,7 +115,9 @@ function handleRequest(request):
         return Response(
             status  = 429,
             headers = { "Retry-After": retryAfter, "X-RateLimit-Limit": bucket.limit },
-            body    = { "error": "rate_limit_exceeded", "retry_after_seconds": retryAfter },
+            body    = { "error": { "type": "rate_limited", "code": "rate_limit_exceeded",
+                                  "message": "Too many requests. Retry after " + retryAfter + " seconds.",
+                                  "api_version": API_VERSION, "request_id": request.id } },
         )
 
     return processRequest(request)
@@ -153,9 +196,9 @@ migration_guide:
 
 // deprecation announcement — on every v1 response
 headers:
-    "Deprecation":  "true"
-    "Sunset":       "2027-01-01"
-    "Link":         '</v2/users>; rel="successor-version"'
+    "Deprecation":  "@1798761600"                       // RFC 9745: 2027-01-01T00:00:00Z as a Unix time
+    "Sunset":       "Fri, 01 Jan 2027 00:00:00 GMT"     // RFC 8594: an HTTP-date
+    "Link":         '</v2/users>; rel="successor-version", <https://docs.example.com/migrate-v2>; rel="deprecation"'
 ```
 
 Deprecation header must appear on every response of the deprecated version, not only in documentation.
@@ -222,9 +265,12 @@ endpoint applied per item.
 ## Definition of Done
 
 API design is complete when:
+
+All items are Per change: this domain has no Standing (release and audit) items.
+
 - request and response contracts are explicit
 - versioning strategy is clear
-- error behavior is defined
+- error behavior is defined; every error uses the one envelope and the status rule in Error Contract (400 shape, 422 business rule, 409 conflict, 429 rate limited)
 - idempotency is addressed for mutable operations
 - caching behavior is defined where used
 - observable signals exist for latency, errors, and usage

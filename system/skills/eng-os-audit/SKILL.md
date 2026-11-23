@@ -1,6 +1,6 @@
 ---
 name: eng-os-audit
-description: "Use to check an existing, already-bootstrapped project's actual state against the Engineering OS it claims to follow, and produce a written compliance report. Run it periodically, before a release, or any time you want to know where a project (or the agent working on it) has drifted from CLAUDE.md and the checkpoint table, not just whether code runs. Does not modify code; read-only audit that ends in a report artifact."
+description: "In a project governed by the Engineering OS, use to check an existing, already-bootstrapped project's actual state against the Engineering OS it claims to follow, and produce a written compliance report. Run it periodically, before a release, or any time you want to know where a project (or the agent working on it) has drifted from CLAUDE.md and the checkpoint table, not just whether code runs. Does not modify code; read-only audit that ends in a report artifact."
 sources:
   - meta/mental-model.md
   - meta/glossary.md
@@ -9,7 +9,7 @@ always_apply: false
 verified_platforms: [claude-code]
 ---
 
-# Engineering OS — Audit
+# Engineering OS: Audit
 
 `eng-os-core`'s checkpoint table is enforced turn by turn, in the moment a file is touched. That
 works only as well as the agent applying it in that moment. The OS is a set of instructions an
@@ -75,30 +75,31 @@ than silently redirecting.
 |---|---|---|
 | A1 | `## Engineering Standards` section exists, points at a real engineering-os path, and pins an Engineering OS version tag | CLAUDE.md |
 | A2 | `## Active Skills` lists a specific, non-trivial set with a reason per skill (not "all of them," not empty) | CLAUDE.md |
-| A3 | Active Skills list still matches the project's actual scope — no skill checked in that the project no longer touches (e.g. `eng-os-design-system` listed but no UI code exists), and no skill missing that the codebase clearly needs (e.g. a public API with no `eng-os-api-design` on the list) | CLAUDE.md vs. actual source tree |
-| A4 | `## Platform Context`, `## Audience and Framing`, `## Core Entities`, `## Screens and Flows`, `## Mock Data Scale` are populated or explicitly marked N/A with a reason — none left as blank template placeholders | CLAUDE.md |
-| A5 | `## Terminology Lock` is populated before-the-fact style (canonical nouns/verbs), and code/UI/API actually use those exact terms — grep for near-synonyms of each locked term to catch drift | CLAUDE.md vs. source, UI copy, API field names |
+| A3 | Active Skills list still matches the project's actual scope: no skill checked in that the project no longer touches (e.g. `eng-os-design-system` listed but no UI code exists), and no skill missing that the codebase clearly needs (e.g. a public API with no `eng-os-api-design` on the list) | CLAUDE.md vs. actual source tree |
+| A4 | `## Platform Context`, `## Audience and Framing`, `## Core Entities`, `## Screens and Flows`, `## Mock Data Scale` are populated or explicitly marked N/A with a reason; none is left as a blank template placeholder | CLAUDE.md |
+| A5 | `## Terminology Lock` is populated before-the-fact style (canonical nouns/verbs), and code/UI/API actually use those exact terms (grep for near-synonyms of each locked term to catch drift) | CLAUDE.md vs. source, UI copy, API field names |
 | A6 | `## Message Area Codes` table exists with area/3-letter-code pairs and a stated next-sequence counter; no two areas share a code; no code was reassigned | CLAUDE.md |
 | A7 | `## Project Structure` section names real folders that exist in the repo, matching `project-structure.md` conventions (capabilities with five layer folders each, app shell regions where there's a UI) | CLAUDE.md vs. actual folder tree |
 | A8 | `## Definition of Done` and `## Non-Obvious Constraints` are populated, not placeholder text | CLAUDE.md |
 | A9 | `## Scale Targets` holds numbers (users, peak RPS, data volume, latency, availability, RPO/RTO, tenancy, classification), or a reasoned N/A for a library or trivial script | CLAUDE.md |
+| A10 | Every Standing (release and audit) DoD row of each Active Skill holds: drills, schedules, reviews, declarations, and project-wide documents exist and are current | Each Active Skill's Definition of Done, Standing section, vs. the repo, CI config, and docs |
 
-### B. Architecture Practices Gate (skip UI/message rows only if the project truly has none — state that explicitly, don't skip silently)
+### B. Architecture Practices Gate (skip UI/message rows only if the project truly has none, and state that explicitly rather than skipping silently)
 
 | # | Check | Verify against |
 |---|---|---|
-| B1 | Constants sectioned by area exist at the path CLAUDE.md names; no hardcoded label/message/heading strings inline in components — grep for quoted string literals in JSX/template/view files | Named constants module(s) |
+| B1 | Constants sectioned by area exist at the path CLAUDE.md names; no hardcoded label/message/heading strings inline in components (grep for quoted string literals in JSX/template/view files) | Named constants module(s) |
 | B2 | Every operational message in code carries a `{AREA}{6-digit}` code from the declared Message Area Codes table; no code is reused; grep all `throw`/`log`/toast/notification calls for bare strings with no code | Source, against CLAUDE.md's Message Area Codes table |
-| B3 | Business logic lives in `services/`, not inline in route/controller/handler files — spot-check the largest handlers for inline business rules | `services/` vs. `controllers/`/handlers |
+| B3 | Business logic lives in `services/`, not inline in route/controller/handler files (spot-check the largest handlers for inline business rules) | `services/` vs. `controllers/`/handlers |
 | B4 | Global CSS/token file exists at the named path; components reference tokens/classes, not inline hardcoded colors/spacing | Named stylesheet/token file vs. component styles |
-| B5 | Four-region app shell present as named components (header, footer, nav panel, one application-panel-per-route) — not duplicated per page | Named shell component paths |
-| B6 | Shared/reusable components actually live in the named shared folder, not copy-pasted across pages — grep for near-duplicate JSX/markup blocks across 2+ page files | Named shared-components folder |
+| B5 | Four-region app shell present as named components (header, footer, nav panel, one application-panel-per-route), not duplicated per page | Named shell component paths |
+| B6 | Shared/reusable components actually live in the named shared folder, not copy-pasted across pages (grep for near-duplicate JSX/markup blocks across 2+ page files) | Named shared-components folder |
 | B7 | The layer mapping stated in CLAUDE.md matches reality: Models are types only, Repositories hold no business rules, Views hold no business logic or data access, Controllers are thin orchestration only | Actual source layering |
 | B8 | Responsive breakpoints (desktop/tablet/mobile) are actually implemented in the named layout mechanism, not asserted only | CSS/layout files |
 | B9 | Config/env file exists at the named path; grep the whole codebase for direct `os.getenv`/`process.env` calls outside that one file | Named config module vs. rest of source |
 | B10 | Accessibility: an automated WCAG checker runs in CI and shell components are keyboard operable with visible focus | CI config, shell components |
 | B11 | The declared design profile (default, inherited, or own) exists at the named path and components reference its tokens | Named token file vs. component styles |
-| B12 | Generic/specific split: every specific-section bullet passes `eng-os-doc-authoring-rules` Core Rule 11's duplicate test against the generic section | The doc's own generic vs. specific sections |
+| B12 | Generic/specific split: no bullet in a project-specific section restates a rule already in the generic section, with only names, paths, or values changed; each fact has one home (`eng-os-documentation-standards`) | The doc's own generic vs. specific sections |
 | B13 | Every capability under `src/capabilities/` has all five folders (`controllers/`, `services/`, `repositories/`, `models/`, `views/`), including ones that are empty; no capability uses a different layout | Folder listing of each capability |
 | B14 | Dependency direction holds: no import from a lower layer to a higher one, and no import reaches into another capability's `controllers/`, `repositories/`, `models/`, or `views/`; the enforcing tool (`dependency-cruiser`, `import-linter`) exists, is configured, and runs in CI | Import graph (run the tool, or grep imports), CI config |
 | B15 | Services receive repositories by injection: no `services/` file constructs a repository or imports a database client or transport type; `app`/`main` is the only module wiring both | `services/` imports, composition root |
@@ -107,22 +108,23 @@ than silently redirecting.
 
 ### C. Checkpoint-Table Compliance (spot-check recent work, not full history)
 
-For each row, sample the most recently changed files in that category (via `git log`) rather than
-attempting to review everything ever written: an audit that tries to re-review the entire history
+For each row, sample the most recently changed files in that category (from the commit log where
+one exists, otherwise from file modification times and the `done` events) rather than attempting
+to review everything ever written: an audit that tries to re-review the entire history
 of a mature project will never finish and isn't what this skill is for.
 
 | # | Domain | Check | Sample from |
 |---|---|---|---|
 | C1 | Naming (`eng-os-code-conventions`) | Recent identifiers match convention and Terminology Lock | Recently changed files |
-| C1a | Comment discipline (`eng-os-code-conventions`) | Comment-to-code ratio isn't a runaway outlier in recently changed files; no comment block runs past two sentences; grep recent `//`/`#` comments for changelog-narration markers (`PLAN-\d+`, `ADR-\d+`, "used to," "originally," "the incident this") | Recently changed files, comment lines only (not commit messages or ADRs, where this content belongs) |
+| C1a | Comment discipline (`eng-os-code-conventions`) | Comment-to-code ratio isn't a runaway outlier in recently changed files; no comment block runs past two sentences; grep recent `//`/`#` comments for changelog-narration markers (`PLAN-\d+`, "used to," "originally," "the incident this"); an `ADR-NNN` pointer to the decision is allowed | Recently changed files, comment lines only (not commit messages or ADRs, where this content belongs) |
 | C2 | Coding standards | Type annotations, docstrings, external-call error handling, no secrets logged, one cohesive responsibility per new module | Recently added modules |
-| C3 | Duplication (Standard 12) | No logic duplicated a third time — recently added code that resembles existing code should have been extracted, not copied | `git log` recent diffs vs. rest of codebase |
+| C3 | Duplication (Standard 12) | No logic duplicated a second time: recently added code that resembles existing code was extracted on its second occurrence, not copied | Recent changes vs. rest of codebase |
 | C4 | `eng-os-api-design` | New/changed endpoints have a stated version, explicit error schema; breaking changes look like migrations, not silent field removals | API route/schema files |
 | C5 | `eng-os-database-design` | New tables/migrations are reversible or the irreversibility is justified in a comment/ADR; indexes have a stated rationale | Migration files |
 | C6 | `eng-os-security-practices` | Input validated at boundaries; least-privilege access; no secrets in code or logs; trust boundaries explicit | Auth/input-handling code |
-| C7 | `eng-os-observability` | Structured logs carry `trace_id`/`span_id`/`severity`/`service`; metrics defined, not just logs | Logging call sites |
+| C7 | `eng-os-observability` | Structured logs carry the Standard 6 minimum fields (`timestamp`, `level`, `message`, `trace_id`, `span_id`, `service`) in the shape `eng-os-observability` owns; trace context propagates as `traceparent`; metrics are defined, not just logs, with route-template labels | Logging call sites |
 | C8 | `eng-os-testing-strategy` | Test files exist per feature; happy-path and failure-path both covered; external deps mocked; where a ratchet baseline exists, no entry sits above its current count and the file has only ever been lowered | Test directory vs. source directory (ratio + gaps) |
-| C9 | `eng-os-deployment-practices` | Environments separated; health checks hit real dependencies, not stubs; a rollback path exists | CI/CD config |
+| C9 | `eng-os-deployment-practices` | Environments separated; readiness checks this instance's own state (config, pool, migration version), and a post-deploy smoke test covers critical dependencies; migrations run as their own gated stages; a rollback path exists | CI/CD config |
 | C10 | `eng-os-prose-style` | Recent README/PR/commit prose: no repeated contrastive negation, no filler intensifiers, no em dash joining two clauses, no clichés, no fake precision or generic closers | README, recent commit messages, docs |
 | C11 | `eng-os-documentation-standards` | ADRs exist for significant decisions made since the last audit (new dependency, contract change, deviation from a documented pattern) | `docs/decisions/` vs. `git log` for matching decision points |
 | C12 | `eng-os-ai-ids-authoring` (if applicable) | Every `.ids` file follows the template; none embedded as a string constant in code; prompt registry entry exists per `.ids` file | `ids/` vs. `docs/prompts/` |
@@ -139,11 +141,11 @@ of a mature project will never finish and isn't what this skill is for.
 Write the report to a file (and publish as an Artifact if the user wants it shareable). Structure:
 
 ```markdown
-# Engineering OS Compliance Report — {project name}
+# Engineering OS Compliance Report: {project name}
 
 **Audited:** {date}
 **Project CLAUDE.md:** {path}
-**Engineering OS reference:** {path or "unreachable — noted as limitation"}
+**Engineering OS reference:** {path, or "unreachable" noted as a limitation}
 
 ## Summary
 
@@ -174,7 +176,7 @@ patterns together rather than listing every file.}
 
 ## Recommended Next Actions
 
-{Ordered by risk/blast-radius, not by file order. Do not fix anything here — this is a punch list
+{Ordered by risk/blast-radius, not by file order. Do not fix anything here: this is a punch list
 for the user to hand back for remediation, separate from this audit.}
 ```
 

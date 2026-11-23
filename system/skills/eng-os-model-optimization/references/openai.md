@@ -1,9 +1,11 @@
 # OpenAI — Model Optimization Tactics
 
+Checked: 2026-11-22 against the provider's documentation. Provider facts change: re-check them at each release (`../../PORTABILITY.md`).
+
 ## Reasoning-Effort Parameter Equivalents
 
-OpenAI's reasoning models expose a `reasoning_effort` (or equivalent) parameter analogous to
-Claude's effort levels. The same allocation principle applies: default to low/medium for
+OpenAI's reasoning models expose a `reasoning.effort` parameter analogous to Claude's effort
+levels. The same allocation principle applies: default to low/medium for
 mechanical or well-specified tasks, and reserve high effort for ambiguous, multi-constraint, or
 high-stakes work. Because reasoning tokens are billed and add latency even when not shown in the
 visible output, mismatched effort on a simple task is a pure cost/latency tax with no quality
@@ -11,7 +13,9 @@ upside.
 
 ## System/Developer Message Caching Behavior
 
-OpenAI's automatic prompt caching keys off a stable prefix, same principle as other providers:
+OpenAI's prompt caching is on by default for supported models, applies from 1,024 prompt tokens,
+and reuses the cache only when the entire rendered prefix matches, the same principle as other
+providers:
 place system/developer instructions and static tool definitions first, and keep them byte-stable
 across requests to maximize cache hits. Avoid regenerating the system/developer message per
 request with small formatting differences (varying whitespace, reordered keys in an embedded
@@ -25,8 +29,9 @@ Keep function/tool schemas minimal and non-overlapping: the same tool-definition
 principle applies, but OpenAI's function calling is additionally sensitive to:
 
 - Strict JSON Schema constraints (`strict: true` mode) reduce malformed tool calls but require
-  every field to be fully specified (no implicit optionality); decide up front whether strict
-  mode's rigidity or looser schema's flexibility better fits the tool.
+  every field to be fully specified (no implicit optionality: an optional value is a required
+  field whose type allows `null`); decide up front whether strict mode's rigidity or looser
+  schema's flexibility better fits the tool.
 - Deeply nested or highly overloaded parameter objects increase the chance the model picks wrong
   fields or omits required ones. Flatten where possible.
 - Large numbers of available tools compete for the model's attention in the same way oversized

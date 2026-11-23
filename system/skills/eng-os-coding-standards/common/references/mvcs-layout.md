@@ -20,7 +20,8 @@ src/
       models/             Record structures and domain types
       views/              Output shapes (whitelisted fields)
   workflows/              Orchestration across two or more capabilities
-  shared/                 errors/, middleware/, events/, utils/  (used by 2+ capabilities)
+  shared/                 errors/, middleware/, events/, constants/, views/, styles/, and one named
+                          module per shared concern (dates/, retry/); never utils/  (used by 2+ capabilities)
 database/                 schema.sql, migrations/, seed.sql
 tests/                    Mirrors src/ layer for layer
 ```
@@ -68,41 +69,47 @@ src/capabilities/checkout/
 
 ## Wiring: the composition root
 
-The service receives its repository; it never builds one. `app` is the only place both are named.
+The service receives its repository and a transaction runner; it never builds either. `app` is the only place they are named. The service owns the transaction boundary: it opens the transaction, and controllers never see one. An empty order is a shape error, rejected by the controller's schema with a 400; the service checks the business rule (enough stock) and makes the stock reservation and the order insert one atomic unit.
 
 ```typescript
 // src/capabilities/orders/services/orders.service.ts
-export function makeOrdersService(ordersRepository: OrdersRepository) {
+export function makeOrdersService(ordersRepository: OrdersRepository, runInTransaction: TransactionRunner) {
   return {
-    async createOrder(input: NewOrder, tx: Transaction): Promise<Order> {
-      if (input.lineItems.length === 0) throw new ValidationError(ORDERS_MESSAGES.EMPTY_ORDER)
-      return ordersRepository.insertOrder(tx, input)
+    async createOrder(input: NewOrder): Promise<Order> {
+      return runInTransaction(async (tx) => {
+        // conditional decrement: UPDATE stock SET qty = qty - :n WHERE sku = :sku AND qty >= :n
+        const reserved = await ordersRepository.reserveStock(tx, input.lineItems)
+        if (!reserved) throw new BusinessRuleError(ORDERS_MESSAGES.INSUFFICIENT_STOCK)   // 422; the transaction rolls back
+        return ordersRepository.insertOrder(tx, input)
+      })
     },
   }
 }
 
 // src/app.ts  (composition root)
-const ordersService = makeOrdersService(ordersRepository)
+const ordersService = makeOrdersService(ordersRepository, database.runInTransaction)
 mountOrdersRoutes(server, makeOrdersController(ordersService))
 ```
 
 ```python
 # src/capabilities/orders/services/orders_service.py
 class OrdersService:
-    def __init__(self, orders_repository: OrdersRepository) -> None:
+    def __init__(self, orders_repository: OrdersRepository, run_in_transaction: TransactionRunner) -> None:
         self._orders_repository = orders_repository
+        self._run_in_transaction = run_in_transaction
 
-    def create_order(self, tx: Transaction, new_order: NewOrder) -> Order:
-        if not new_order.line_items:
-            raise ValidationError(ORDERS_MESSAGES.EMPTY_ORDER)
-        return self._orders_repository.insert_order(tx, new_order)
+    def create_order(self, new_order: NewOrder) -> Order:
+        with self._run_in_transaction() as tx:
+            if not self._orders_repository.reserve_stock(tx, new_order.line_items):
+                raise BusinessRuleError(ORDERS_MESSAGES.INSUFFICIENT_STOCK)   # 422; the transaction rolls back
+            return self._orders_repository.insert_order(tx, new_order)
 
 # src/app.py  (composition root)
-orders_service = OrdersService(OrdersRepository(database_pool))
+orders_service = OrdersService(OrdersRepository(database_pool), database_pool.run_in_transaction)
 register_orders_routes(app, OrdersController(orders_service))
 ```
 
-A service test passes a fake `OrdersRepository`; no database is involved.
+A service test passes a fake `OrdersRepository` and a transaction runner that calls its function; no database is involved. That the stock reservation and the insert roll back together is proven once, in the repository tests against a real database.
 
 ## Cross-capability calls
 
